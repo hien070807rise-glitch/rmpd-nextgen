@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "project_id": "RMPD-NEXTGEN-FULL-PRODUCT-RELEASE",
-  "functional_purpose": "Xây dựng và đóng gói hoàn chỉnh trình phát nhạc Pure-Rust thế hệ mới (từ lõi Real-Time Audio Engine, FTS5 Indexer, Atomic Tagging & ReplayGain, OS Media Integration, Thin UI, Auto-Spawn Launcher cho tới bộ cài đặt .msi / Portable .zip / .AppImage / .dmg sẵn sàng cho người dùng cuối).",
+  "project_id": "RMPD-NEXTGEN-VERDANT-ENGAWA-RELEASE",
+  "functional_purpose": "Xây dựng và đóng gói hoàn chỉnh trình phát nhạc Pure-Rust thế hệ mới: kết hợp lõi Real-Time Audio Engine (M0Rf30/rmpd) với đầy đủ trải nghiệm của bản UI Verdant Engawa thực tế trên máy (Classical Work/Movement, 72-band Hertz FFT, 3-Tier LRCLIB Lyrics, Discord RPC, 4 Theme Presets) đến bộ cài đặt/Portable cho người dùng cuối.",
   "triage_4_variables": {
     "complexity": "HIGH",
     "uncertainty": "MEDIUM",
@@ -11,7 +11,7 @@
     "selected_route": "DEEP_DAG_ROUTE"
   },
   "control_plane_config": {
-    "lifecycle_state_file": "scratch/task_lifecycle.json",
+    "lifecycle_state_file": ".hta/task_lifecycle.json",
     "max_retries_per_node": 2,
     "independent_quality_gate_required": true,
     "orchestration_roles": {
@@ -20,59 +20,59 @@
     }
   },
   "abstract_mechanisms": [
-    "Zero-Unsafe IPC Split & Invisible Daemon Lifecycle: UI tách rời Daemon qua Socket/Named Pipe nhưng rmpd-launcher tự động quản lý ngầm để người dùng trải nghiệm như 1 ứng dụng duy nhất.",
-    "Real-Time Audio & Anti-Pop Sample-Rate Switching: Cấm cấp phát Heap trên audio callback; áp dụng micro-fade ramp khi chuyển tần số lấy mẫu phần cứng DAC.",
-    "Station Isolation & Release Gate: Cô lập hoàn toàn target_scope ở các đợt viết code song song và chia Wave 4 thành 2 cặp tuần tự (tối đa 2 luồng Argon/wave) trước khi qua E2E Loopback Test."
+    "Dual-Channel IPC: Tách MPD Wire Protocol (điều khiển/metadata) và Lock-Free PCM/FFT Telemetry Tap (72-band Hertz-spaced visualizer 30-60fps) với 0 unsafe FFI.",
+    "Real-Time Audio & Anti-Pop Sample-Rate Switching: Cấm cấp phát Heap trên audio callback; micro-fade ramp khi đổi sample-rate DAC; True Shuffle Queue tường minh.",
+    "Engawa UI Parity & Station Isolation: Tái lập chuẩn xác Design Tokens (Basalt/Washi, 4 presets, Frameless Title Bar, 8 Views) bằng Slint/iced; tối đa 2 luồng Argon/wave và cô lập target_scope."
   ],
   "milestones": [
     {
       "milestone_id": "M1",
-      "name": "Sơ Chế Kiến Trúc rmpd & Khóa Hợp Đồng Giao Diện Toàn Cục (5 Contracts)",
+      "name": "Sơ Chế rmpd + Trích Xuất Đặc Tả Verdant Engawa & Khóa 6 Hợp Đồng Giao Diện",
       "status": "ACTIVE_WINDOW",
-      "exit_criteria": "Hoàn tất bóc tách M0Rf30/rmpd và khóa 5 hợp đồng: Audio/Sample-Rate Trait, MPD/Queue Schema, Tag/ReplayGain Schema, C-ABI/CLAP Plugin, và Launcher Watchdog."
+      "exit_criteria": "Trích xuất xong đặc tả từ AppData/verdant & M0Rf30/rmpd; khóa 6 hợp đồng (Audio/Anti-Pop, PCM/FFT Tap, MPD/Classical/Queue Schema, Tag/R128/Lyrics, C-ABI/CLAP, Launcher Watchdog)."
     },
     {
       "milestone_id": "M2",
-      "name": "Lõi Real-Time Audio Engine, Chuyển Đổi Sample-Rate Êm Dịu & Lưu Hàng Đợi",
+      "name": "Lõi Real-Time Audio Engine, Lock-Free PCM/FFT Tap, Anti-Pop & True Shuffle Queue",
       "status": "ACTIVE_WINDOW",
-      "exit_criteria": "Phát nhạc bit-perfect (WASAPI Exclusive/ASIO/PipeWire) 0 xrun, chuyển bài khác tần số lấy mẫu không nổ tiếng (pop/click) và khôi phục tức thì vị trí phát."
+      "exit_criteria": "Phát bit-perfect 0 xrun, chuyển sample-rate không pop/click, xuất 2048-sample PCM / 72-band Hertz FFT tap 0-alloc và duy trì True Shuffle Queue."
     },
     {
       "milestone_id": "M3",
-      "name": "Thư Viện SQLite FTS5, Ghi/Sửa Tag Nguyên Tử & Quét Âm Lượng EBU R128",
+      "name": "SQLite FTS5 + Classical Work/Movement Index, Disk Artwork Cache, Atomic Tagging & EBU R128",
       "status": "HORIZON_LOCKED",
-      "exit_criteria": "Tìm kiếm 100k+ bài < 10ms, sửa tag an toàn (atomic swap) và tính chính xác ReplayGain Track/Album Gain + True Peak."
+      "exit_criteria": "Tìm kiếm 100k+ bài < 10ms, tách chuẩn Work/Movement & Cross-Recording, hỗ trợ Curated Collections, Disk-Cached 2x2 Mosaic Art, Dedupe, Atomic Tag (lofty) và EBU R128."
     },
     {
       "milestone_id": "M4",
-      "name": "Trạm Nạp Động DSP Plugin (C-ABI/CLAP) & Tích Hợp Hệ Điều Hành (SMTC/MPRIS/Hotkeys)",
+      "name": "Trạm DSP Plugin (C-ABI/CLAP), 3-Tier LRCLIB Lyrics, OS Media & Discord Rich Presence",
       "status": "HORIZON_LOCKED",
-      "exit_criteria": "Nạp động DSP plugin cô lập lỗi và đồng bộ trạng thái phát nhạc lên Windows SMTC, Linux MPRIS2, macOS NowPlaying + phím tắt toàn cục."
+      "exit_criteria": "Nạp động DSP plugin an toàn; hoạt động đủ 3 tầng Lyrics (LRC -> Tag -> LRCLIB có cache miss 30 ngày), Windows SMTC/MPRIS2/NowPlaying và Discord RPC."
     },
     {
       "milestone_id": "M5",
-      "name": "Thin UI Client (GUI + TUI) & Bộ Khởi Chạy Tự Động Quản Lý Daemon (rmpd-launcher)",
+      "name": "Giao Diện Verdant Engawa (Slint/iced GPU 8 Views + Fullscreen) & Auto-Spawn Launcher",
       "status": "HORIZON_LOCKED",
-      "exit_criteria": "Người dùng mở 1 file thực thi duy nhất; Launcher tự bật/nối Daemon ngầm và hiển thị UI 60fps (< 25MB RAM, 0 unsafe FFI)."
+      "exit_criteria": "Hoàn thiện đủ 8 Views + Frameless Title Bar + 4 Style Presets + 72-Band FFT Fullscreen (60fps, 0 unsafe FFI) và Launcher 1-click tự bật Daemon/Tray."
     },
     {
       "milestone_id": "M6",
-      "name": "Kiểm Chứng Toán Học DSP & Kiểm Thử Tích Hợp Đầu-Cuối (E2E Audio Loopback)",
+      "name": "Kiểm Chứng Toán Học DSP/FFT & Kiểm Thử Tích Hợp Đầu-Cuối (E2E Audio Loopback)",
       "status": "HORIZON_LOCKED",
-      "exit_criteria": "Vượt qua kiểm định toán học đáp ứng tần số/EBU R128 và bài test tự động E2E từ Launcher -> UI -> Daemon -> Virtual Audio Sink."
+      "exit_criteria": "Vượt qua math_verifier.py (EBU R128 <= 0.1 LU, 72-band Hertz bin accuracy, 0 underrun) và E2E Loopback Test (Launcher -> UI -> Daemon -> Virtual Sink + Hot-Unplug)."
     },
     {
       "milestone_id": "M7",
-      "name": "Đóng Gói Đa Nền Tảng (.msi / Portable .zip / .AppImage / .dmg) & Nghiệm Thu Phát Hành",
+      "name": "Đóng Gói Đa Nền Tảng (.msi / Portable .zip / .AppImage / .dmg) & Nghiệm Thu 4 Trụ Cột",
       "status": "HORIZON_LOCKED",
-      "exit_criteria": "Xuất bản gói cài đặt và bản Portable tối ưu LTO, kèm mã băm SHA-256, tài liệu người dùng và đạt APPROVED tại independent_quality_gate.py."
+      "exit_criteria": "Xuất bản gói cài đặt và bản Portable LTO kèm SHA256SUMS, tài liệu người dùng và đạt APPROVED tại independent_quality_gate.py."
     }
   ],
   "active_window_tasks": [
     {
       "task_id": "T-01.01",
       "milestone_id": "M1",
-      "name": "Sơ chế (Mise en place) mã nguồn M0Rf30/rmpd và khảo sát các crate tích hợp OS/Tagging/Packaging",
+      "name": "Sơ chế (Mise en place) M0Rf30/rmpd và trích xuất đặc tả UI/Data từ bản Verdant Engawa cục bộ",
       "dependencies": [],
       "assigned_skill": "scholarly-deep-research",
       "execution_mode": "ISOLATED_SUBAGENT",
@@ -84,13 +84,13 @@
       "firing_wave": 1,
       "requires_human_approval": false,
       "emits_artifacts": ["ResearchReportContract"],
-      "token_budget": 2000,
-      "acceptance_criteria": "Xuất bản đồ phụ thuộc rmpd và thông số tích hợp của lofty (Tag), ebur128 (ReplayGain), souvlaki (SMTC/MPRIS), cargo-packager."
+      "token_budget": 2500,
+      "acceptance_criteria": "Xuất bản đồ crate rmpd + bảng đặc tả đầy đủ Design Tokens (Basalt/Washi, 4 presets), 4 mẫu regex classical_work, 72-band Hertz FFT, LRCLIB và Discord RPC."
     },
     {
       "task_id": "T-01.02",
       "milestone_id": "M1",
-      "name": "Thiết kế kiến trúc tổng thể 9 Crate, máy trạng thái Anti-Pop Sample-Rate & cơ chế Auto-Spawn Daemon",
+      "name": "Thiết kế kiến trúc 9 Crate, kênh phụ Lock-Free PCM/FFT Tap, Anti-Pop Sample-Rate & Auto-Spawn Daemon",
       "dependencies": ["T-01.01"],
       "assigned_skill": "deep-problem-analysis",
       "execution_mode": "SKILL_PROTOCOL",
@@ -104,12 +104,12 @@
       "consumes_artifacts": ["ResearchReportContract"],
       "emits_artifacts": ["StrategicDecisionBlueprint"],
       "token_budget": 2500,
-      "acceptance_criteria": "Chốt thiết kế luồng dữ liệu đầu-cuối, cơ chế thu hồi socket/pipe mồ côi và cấu trúc bản Portable vs Installer."
+      "acceptance_criteria": "Chốt thiết kế Dual-Channel IPC (MPD Socket + PCM/FFT Ring Tap), kiến trúc GPU UI Slint/iced và cơ chế Launcher Portable vs Installer."
     },
     {
       "task_id": "T-01.03",
       "milestone_id": "M1",
-      "name": "Khóa 5 Hợp đồng Giao diện (Contract-First): Audio Trait, MPD/Queue, Tag/R128, C-ABI/CLAP & Launcher IPC",
+      "name": "Khóa 6 Hợp đồng Giao diện (Contract-First): Audio/FFT Tap, MPD/Classical/Queue, Tag/R128/Lyrics, C-ABI/CLAP & Launcher",
       "dependencies": ["T-01.02"],
       "assigned_skill": "institutional-and-policy-design",
       "execution_mode": "SKILL_PROTOCOL",
@@ -123,12 +123,12 @@
       "consumes_artifacts": ["StrategicDecisionBlueprint"],
       "emits_artifacts": ["PolicyDesignBlueprint"],
       "token_budget": 2500,
-      "acceptance_criteria": "Định nghĩa đầy đủ chữ ký Rust trait, IPC schema và C-ABI header trước khi phân phối cho 4 trạm viết code song song ở Wave 4."
+      "acceptance_criteria": "Khóa cứng 6 file chữ ký Rust trait, Schema Classical/Collections, PCM/FFT Telemetry packet và C-ABI header trước Wave 4."
     },
     {
       "task_id": "T-02.01",
       "milestone_id": "M2",
-      "name": "TDD Lõi Audio Engine (Symphonia + Rubato + rtrb + CPAL), Chuyển đổi Sample-Rate Êm dịu & Lưu Hàng đợi",
+      "name": "TDD Lõi Audio Engine (Symphonia + Rubato + rtrb + CPAL), Anti-Pop Sample-Rate, True Shuffle & 72-Band Hertz FFT Tap",
       "dependencies": ["T-01.03"],
       "assigned_skill": "software-engineering-orchestrator",
       "execution_mode": "ISOLATED_SUBAGENT",
@@ -141,13 +141,13 @@
       "requires_human_approval": false,
       "consumes_artifacts": ["PolicyDesignBlueprint"],
       "emits_artifacts": ["VerifiedCodebase", "TestReport"],
-      "token_budget": 4000,
-      "acceptance_criteria": "0 heap alloc trong audio callback; chuyển tiếp gapless/sample-rate 44.1kHz<->96kHz không nổ tiếng; khôi phục vị trí phát < 5ms."
+      "token_budget": 4500,
+      "acceptance_criteria": "0 heap alloc trong audio callback; chuyển sample-rate không pop/click; True Shuffle Queue tường minh; xuất 2048-sample FFT 72 dải Hertz-spaced có treble tilt & dB mapping."
     },
     {
       "task_id": "T-03.01",
       "milestone_id": "M3",
-      "name": "TDD Bộ đánh chỉ mục SQLite FTS5 (< 10ms), File Watcher tự động & Máy chủ MPD Wire Protocol",
+      "name": "TDD SQLite FTS5 (< 10ms), Classical Work/Movement & Cross-Recording Index, Curated Collections, Disk Art Cache & MPD Server",
       "dependencies": ["T-01.03"],
       "assigned_skill": "software-engineering-orchestrator",
       "execution_mode": "ISOLATED_SUBAGENT",
@@ -160,13 +160,13 @@
       "requires_human_approval": false,
       "consumes_artifacts": ["PolicyDesignBlueprint"],
       "emits_artifacts": ["VerifiedCodebase", "TestReport"],
-      "token_budget": 3000,
-      "acceptance_criteria": "Truy vấn FTS5 100k+ bài < 10ms; tự động cập nhật khi thêm/xóa file nhạc; hỗ trợ Named Pipe (Windows) & Unix Socket."
+      "token_budget": 3500,
+      "acceptance_criteria": "FTS5 100k+ bài < 10ms; tách Work/Movement khớp 4 mẫu classical_work.js; đọc verdant-collections.json; cache cover xuống đĩa + 2x2 mosaic; dedupe playlist."
     },
     {
       "task_id": "T-03.02",
       "milestone_id": "M3",
-      "name": "TDD Bộ Ghi/Sửa Tag Nguyên tử (lofty) & Quét Chuẩn hóa Âm lượng Đa luồng (EBU R128 / ReplayGain)",
+      "name": "TDD Atomic Tag Writer (lofty), Quét Âm lượng EBU R128/ReplayGain & Hệ thống 3-Tier Lyrics (LRC -> Tag -> LRCLIB)",
       "dependencies": ["T-01.03"],
       "assigned_skill": "software-engineering-orchestrator",
       "execution_mode": "ISOLATED_SUBAGENT",
@@ -179,13 +179,13 @@
       "requires_human_approval": false,
       "consumes_artifacts": ["PolicyDesignBlueprint"],
       "emits_artifacts": ["VerifiedCodebase", "TestReport"],
-      "token_budget": 2500,
-      "acceptance_criteria": "Ghi tag ID3v2/Vorbis/MP4 qua cơ chế atomic temp-swap không làm hỏng file khi mất điện; tính chuẩn Track/Album Gain & True Peak."
+      "token_budget": 3000,
+      "acceptance_criteria": "Ghi tag atomic temp-swap an toàn; quét EBU R128 đa luồng; Lyrics 3 tầng với LRCLIB 1-in-flight, negative-cache 30 ngày và ghi ngược .lrc/tag."
     },
     {
       "task_id": "T-04.01",
       "milestone_id": "M4",
-      "name": "TDD Trạm Nạp Động DSP Plugin (C-ABI/CLAP) & Tích hợp OS Media Controls (SMTC/MPRIS2/NowPlaying/Hotkeys)",
+      "name": "TDD Trạm DSP Plugin (C-ABI/CLAP), OS Media Controls (SMTC/MPRIS2/NowPlaying/Hotkeys) & Discord Rich Presence",
       "dependencies": ["T-01.03"],
       "assigned_skill": "software-engineering-orchestrator",
       "execution_mode": "ISOLATED_SUBAGENT",
@@ -199,17 +199,17 @@
       "consumes_artifacts": ["PolicyDesignBlueprint"],
       "emits_artifacts": ["VerifiedCodebase", "TestReport"],
       "token_budget": 3000,
-      "acceptance_criteria": "Nạp động plugin DSP an toàn; đồng bộ bìa đĩa/tiêu đề/nút bấm lên màn hình khóa Windows SMTC, Linux MPRIS2 và macOS."
+      "acceptance_criteria": "Nạp động DSP plugin an toàn; đồng bộ Windows SMTC/MPRIS2/macOS và Discord RPC cục bộ (bật/tắt live từ Settings)."
     },
     {
       "task_id": "T-05.01",
       "milestone_id": "M5",
-      "name": "Chế tác Thin UI Client bằng Rust (Slint/iced Desktop GUI + ratatui TUI) qua MPD Socket",
+      "name": "Chế tác Giao diện Verdant Engawa bằng Rust (Slint/iced GPU): 8 Views, Frameless Bar, 4 Style Presets & Fullscreen FFT",
       "dependencies": ["T-03.01", "T-03.02"],
       "assigned_skill": "creative-ui-and-visual-arts",
       "execution_mode": "ISOLATED_SUBAGENT",
       "assigned_model": "pro",
-      "recommended_engine": "Argon (Medium)",
+      "recommended_engine": "Argon (High)",
       "station_role": "STATION",
       "permission_zone": "WORKSPACE_WRITE",
       "target_scope": ["crates/rmpd-client-ui"],
@@ -217,8 +217,8 @@
       "requires_human_approval": false,
       "consumes_artifacts": ["VerifiedCodebase", "TestReport"],
       "emits_artifacts": ["InteractiveUIComponent"],
-      "token_budget": 3500,
-      "acceptance_criteria": "Giao diện 60fps (< 25MB RAM) gồm: trình duyệt thư viện, bảng playlist, hộp thoại sửa Tag/ReplayGain, thanh Spectrum; 0 dòng unsafe FFI."
+      "token_budget": 4500,
+      "acceptance_criteria": "Tái lập đầy đủ Basalt/Washi + 4 presets (default/zen/minimal/editorial), live UISCALE, 8 Views (Home/Playlist/All Songs/Artist/Search/Queue+Lyrics/Settings/Fullscreen 4-style FFT), 60fps micro-animations, 0 unsafe FFI."
     },
     {
       "task_id": "T-05.02",
@@ -237,12 +237,12 @@
       "consumes_artifacts": ["VerifiedCodebase", "TestReport"],
       "emits_artifacts": ["VerifiedCodebase", "TestReport"],
       "token_budget": 2500,
-      "acceptance_criteria": "Người dùng mở 1 file chạy duy nhất: tự khởi chạy Daemon nếu chưa có, thu gọn xuống khay hệ thống (Tray) và tự kết nối lại nếu UI khởi động lại."
+      "acceptance_criteria": "1-click khởi chạy tự bật Daemon ngầm, dọn socket/pipe mồ côi, thu gọn Tray và tự nối lại kênh MPD + FFT Tap."
     },
     {
       "task_id": "T-06.01",
       "milestone_id": "M6",
-      "name": "Kiểm chứng toán học đáp ứng tần số DSP, độ chính xác EBU R128 & mô hình hàng đợi Ring-Buffer",
+      "name": "Kiểm chứng toán học đáp ứng tần số DSP, độ chính xác 72-Band Hertz FFT, EBU R128 & Ring-Buffer",
       "dependencies": ["T-02.01", "T-04.01"],
       "assigned_skill": "applied-mathematics-and-modeling",
       "execution_mode": "DETERMINISTIC_TOOL",
@@ -254,12 +254,12 @@
       "consumes_artifacts": ["VerifiedCodebase", "TestReport"],
       "emits_artifacts": ["MathProofCapsule", "Solution"],
       "token_budget": 1500,
-      "acceptance_criteria": "Vượt qua math_verifier.py: độ lệch chuẩn hóa âm lượng <= 0.1 LU, không méo pha/THD và 0 buffer underrun."
+      "acceptance_criteria": "Vượt qua math_verifier.py: độ lệch EBU R128 <= 0.1 LU, biên dải tần 72-band Hertz chính xác ở mọi sample rate (44.1k/48k/96k/192k) và 0 buffer underrun."
     },
     {
       "task_id": "T-06.02",
       "milestone_id": "M6",
-      "name": "Kiểm thử Tích hợp Đầu-Cuối (E2E Virtual Audio Loopback), Hot-Unplug DAC & Kiểm toán Bảo mật",
+      "name": "Kiểm thử Tích hợp Đầu-Cuối (E2E Virtual Audio Loopback), UI Snapshot Regression, Hot-Unplug DAC & Security Audit",
       "dependencies": ["T-05.01", "T-05.02"],
       "assigned_skill": "software-engineering-orchestrator",
       "execution_mode": "ISOLATED_SUBAGENT",
@@ -273,7 +273,7 @@
       "consumes_artifacts": ["InteractiveUIComponent", "VerifiedCodebase", "TestReport"],
       "emits_artifacts": ["VerifiedCodebase", "TestReport"],
       "token_budget": 3000,
-      "acceptance_criteria": "Vượt qua E2E test tự động (Launcher -> UI -> Socket -> Daemon -> Virtual Sink), bài test rút nóng DAC và swe_security_auditor.py."
+      "acceptance_criteria": "Vượt qua E2E Loopback (Launcher -> UI -> Socket/FFT -> Daemon -> Virtual Sink), UI ViewModel/Snapshot tests, rút nóng DAC và swe_security_auditor.py."
     },
     {
       "task_id": "T-07.01",
@@ -292,12 +292,12 @@
       "consumes_artifacts": ["MathProofCapsule", "VerifiedCodebase", "TestReport"],
       "emits_artifacts": ["VerifiedCodebase", "TestReport"],
       "token_budget": 2500,
-      "acceptance_criteria": "Biên dịch LTO=fat, strip symbols; tạo bộ cài .msi, bản Portable .zip (lưu cấu hình tại chỗ), .AppImage, .dmg kèm SHA256SUMS và đạt APPROVED tại independent_quality_gate.py."
+      "acceptance_criteria": "Biên dịch LTO=fat, strip symbols; tạo bộ cài .msi, bản Portable .zip (lưu config/library/art-cache tại chỗ), .AppImage, .dmg kèm SHA256SUMS và đạt APPROVED tại independent_quality_gate.py."
     }
   ],
   "token_budget_summary": {
-    "allocated_window_tokens": 32500,
-    "max_project_budget": 50000,
+    "allocated_window_tokens": 35500,
+    "max_project_budget": 55000,
     "prompt_cache_preservation_target": "90%"
   }
 }

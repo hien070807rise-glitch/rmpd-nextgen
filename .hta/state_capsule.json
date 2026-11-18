@@ -1,36 +1,27 @@
 {
-  "project_name": "RMPD-NextGen-Rust-Audio-Player-Full-Release",
-  "current_phase": "HTA-Full-Lifecycle-Blueprint-To-EndUser-Packaging",
-  "active_goal": "Thiết kế Blueprint kiến trúc hoàn chỉnh (7 Crate) và quy trình phân tầng đa tác tử (7 Milestones, 12 Tasks, 7 Waves) từ thiết kế lõi đến đóng gói bộ cài đặt/Portable và bàn giao tới người dùng cuối (trạng thái PLANNED, chưa thi công code).",
+  "project_name": "RMPD-NextGen-Verdant-Engawa-Edition",
+  "current_phase": "PLANNED_UI_ALIGNED_WITH_LOCAL_VERDANT",
+  "active_goal": "Xây dựng và đóng gói trình phát nhạc Pure-Rust (9 Crates) kết hợp lõi M0Rf30/rmpd với giao diện Verdant Engawa đã tùy biến thực tế trên máy (Basalt/Washi, Classical Work/Movement, 72-Band Hertz FFT Visualizer, 3-Tier LRCLIB Lyrics, Discord RPC).",
   "locked_axioms": [
-    "[LOCKED_AXIOM] Loại bỏ cầu nối C++ ABI cho plugin foobar2000 cũ và loại bỏ custom UI/UX phức tạp; tách rời Headless Audio Daemon và Thin UI Client qua Socket/Named Pipe.",
-    "[LOCKED_AXIOM] Kiến trúc nền tảng: Pure-Rust Modular Daemon dựa trên M0Rf30/rmpd (Symphonia + Rubato SIMD + rtrb Lock-Free + CPAL Bit-Perfect + SQLite FTS5 + CLAP/C-ABI Plugin).",
-    "[LOCKED_AXIOM] Phạm vi Full End-User Product bắt buộc bao gồm đủ 7 trụ cột: (1) Audio Engine & Anti-Pop Sample-Rate Switching, (2) FTS5 Indexer & Queue Persistence, (3) Atomic Tag Writer (lofty) & EBU R128/ReplayGain Scanner, (4) C-ABI/CLAP DSP & OS Media Controls (SMTC/MPRIS2/NowPlaying/Hotkeys), (5) Thin UI Client (0 unsafe FFI), (6) Single-Binary Launcher/Watchdog tự bật Daemon, (7) E2E Loopback Test & Đóng gói bộ cài đặt (.msi/Portable .zip/.AppImage/.dmg)."
+    "[LOCKED_AXIOM] Tách rời Headless Audio Daemon (M0Rf30/rmpd) và Rust GPU UI Client (Slint/iced) qua MPD Wire Protocol + Kênh phụ Lock-Free PCM/FFT Tap (0 unsafe FFI giữa UI và Audio Engine).",
+    "[LOCKED_AXIOM] UI/UX nguồn được chuẩn hóa theo bản Verdant Engawa thực tế tại AppData/Roaming/foobar2000-v2/verdant: hệ màu Basalt Dark Sidebar + Washi Light Content (WCAG AAA), 4 preset (default/zen/minimal/editorial), Frameless Title Bar, 8 Views và Fullscreen 72-Band Hertz-Spaced FFT Visualizer.",
+    "[LOCKED_AXIOM] Phạm vi dữ liệu & tích hợp mở rộng gồm: Classical Work/Movement & Cross-Recording Index, Curated Collections, Disk-Cached 2x2 Mosaic Artwork, Atomic Tagging (lofty), EBU R128 ReplayGain, 3-Tier Lyrics (LRC -> Tag -> LRCLIB), OS Media (SMTC/MPRIS2) + Discord RPC, Auto-Spawn Launcher và đóng gói .msi/Portable .zip/.AppImage/.dmg."
   ],
   "decision_log": [
-    "Architecture Expansion: Mở rộng từ 5 Crate MVP lên 7 Crate hoàn chỉnh (thêm rmpd-tagger, rmpd-os-media, rmpd-launcher) kèm pipeline đóng gói phát hành đa nền tảng.",
-    "DAG Stratification: Phân rã 7 Milestones (M1-M7) và 12 Tasks qua 7 đợt sóng thực thi (Wave 1-7) với cô lập thư mục ghi tuyệt đối.",
-    "Execution Constraint: Giữ nguyên trạng thái PLANNED trên task_lifecycle.json, chỉ xuất bản thiết kế và quy trình làm việc."
+    "UI Re-Alignment: Đối chiếu thực tế phát hiện UI cục bộ Verdant (feat/option-c-refactor) đã nâng cấp mạnh về Engawa Design System, Classical Work parser, 72-band Hertz FFT, LRCLIB và Discord RPC -> cập nhật toàn bộ Contract M1-M7.",
+    "Protocol Extension: Bổ sung Lock-Free PCM/FFT Telemetry Tap bên cạnh MPD Socket để nuôi Visualizer 30-60fps mà không vi phạm Real-Time Audio Callback Invariant.",
+    "Concurrency Policy: Giữ nguyên phân bổ Hydrogen High (T-01.01), Argon Pro cho 8 trạm code/test/packaging (tối đa 2 luồng Argon/Wave), bảo toàn Opus cho ESCALATE_HANDOFF."
   ],
   "rejected_heuristics": [
-    "[REJECTED_HEURISTIC] Dùng rust-anything chuyển dịch từng phần từ foobar2000 (vướng mã nguồn đóng & stateful real-time stream).",
-    "[REJECTED_HEURISTIC] Viết C++ FFI/ABI Shim mô phỏng MSVC vtable của foobar2000 SDK.",
-    "[REJECTED_HEURISTIC] Nhúng trực tiếp Rust UI vào C Core của DeaDBeeF qua unsafe FFI hoặc bắt người dùng tự khởi chạy Daemon thủ công qua dòng lệnh."
+    "[REJECTED_HEURISTIC] Dùng rust-anything hoặc c2rust chuyển ngữ trực tiếp mã JS/GDI+ của Verdant hoặc C++ foobar2000 (phải viết mới bằng Slint/iced theo đặc tả hành vi).",
+    "[REJECTED_HEURISTIC] Truyền luồng PCM real-time qua giao thức text MPD Socket (gây nghẽn serialization; phải tách kênh Lock-Free FFT/PCM Tap riêng).",
+    "[REJECTED_HEURISTIC] Dùng giao diện Thin TUI/tối giản chung chung bỏ qua các tính năng thực tế đang dùng trong Verdant Engawa."
   ],
-  "lifecycle_checkpoint_ref": "scratch/task_lifecycle.json",
+  "lifecycle_checkpoint_ref": ".hta/task_lifecycle.json",
   "shared_variables": {
-    "base_repo": "M0Rf30/rmpd",
-    "workspace_crates": [
-      "rmpd-player",
-      "rmpd-dsp",
-      "rmpd-library",
-      "rmpd-protocol",
-      "rmpd-tagger",
-      "rmpd-plugin",
-      "rmpd-os-media",
-      "rmpd-client-ui",
-      "rmpd-launcher"
-    ],
+    "base_audio_repo": "M0Rf30/rmpd",
+    "reference_ui_dir": "C:/Users/Le Ke Hien/AppData/Roaming/foobar2000-v2/verdant",
+    "ui_framework": "Slint or iced (GPU-accelerated)",
     "release_targets": [
       "windows-x86_64-msi-and-portable-zip",
       "linux-x86_64-appimage-and-deb",
