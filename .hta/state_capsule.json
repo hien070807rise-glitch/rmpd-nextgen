@@ -1,0 +1,40 @@
+{
+  "project_name": "RMPD-NextGen-Rust-Audio-Player-Full-Release",
+  "current_phase": "HTA-Full-Lifecycle-Blueprint-To-EndUser-Packaging",
+  "active_goal": "Thiết kế Blueprint kiến trúc hoàn chỉnh (7 Crate) và quy trình phân tầng đa tác tử (7 Milestones, 12 Tasks, 7 Waves) từ thiết kế lõi đến đóng gói bộ cài đặt/Portable và bàn giao tới người dùng cuối (trạng thái PLANNED, chưa thi công code).",
+  "locked_axioms": [
+    "[LOCKED_AXIOM] Loại bỏ cầu nối C++ ABI cho plugin foobar2000 cũ và loại bỏ custom UI/UX phức tạp; tách rời Headless Audio Daemon và Thin UI Client qua Socket/Named Pipe.",
+    "[LOCKED_AXIOM] Kiến trúc nền tảng: Pure-Rust Modular Daemon dựa trên M0Rf30/rmpd (Symphonia + Rubato SIMD + rtrb Lock-Free + CPAL Bit-Perfect + SQLite FTS5 + CLAP/C-ABI Plugin).",
+    "[LOCKED_AXIOM] Phạm vi Full End-User Product bắt buộc bao gồm đủ 7 trụ cột: (1) Audio Engine & Anti-Pop Sample-Rate Switching, (2) FTS5 Indexer & Queue Persistence, (3) Atomic Tag Writer (lofty) & EBU R128/ReplayGain Scanner, (4) C-ABI/CLAP DSP & OS Media Controls (SMTC/MPRIS2/NowPlaying/Hotkeys), (5) Thin UI Client (0 unsafe FFI), (6) Single-Binary Launcher/Watchdog tự bật Daemon, (7) E2E Loopback Test & Đóng gói bộ cài đặt (.msi/Portable .zip/.AppImage/.dmg)."
+  ],
+  "decision_log": [
+    "Architecture Expansion: Mở rộng từ 5 Crate MVP lên 7 Crate hoàn chỉnh (thêm rmpd-tagger, rmpd-os-media, rmpd-launcher) kèm pipeline đóng gói phát hành đa nền tảng.",
+    "DAG Stratification: Phân rã 7 Milestones (M1-M7) và 12 Tasks qua 7 đợt sóng thực thi (Wave 1-7) với cô lập thư mục ghi tuyệt đối.",
+    "Execution Constraint: Giữ nguyên trạng thái PLANNED trên task_lifecycle.json, chỉ xuất bản thiết kế và quy trình làm việc."
+  ],
+  "rejected_heuristics": [
+    "[REJECTED_HEURISTIC] Dùng rust-anything chuyển dịch từng phần từ foobar2000 (vướng mã nguồn đóng & stateful real-time stream).",
+    "[REJECTED_HEURISTIC] Viết C++ FFI/ABI Shim mô phỏng MSVC vtable của foobar2000 SDK.",
+    "[REJECTED_HEURISTIC] Nhúng trực tiếp Rust UI vào C Core của DeaDBeeF qua unsafe FFI hoặc bắt người dùng tự khởi chạy Daemon thủ công qua dòng lệnh."
+  ],
+  "lifecycle_checkpoint_ref": "scratch/task_lifecycle.json",
+  "shared_variables": {
+    "base_repo": "M0Rf30/rmpd",
+    "workspace_crates": [
+      "rmpd-player",
+      "rmpd-dsp",
+      "rmpd-library",
+      "rmpd-protocol",
+      "rmpd-tagger",
+      "rmpd-plugin",
+      "rmpd-os-media",
+      "rmpd-client-ui",
+      "rmpd-launcher"
+    ],
+    "release_targets": [
+      "windows-x86_64-msi-and-portable-zip",
+      "linux-x86_64-appimage-and-deb",
+      "macos-universal-dmg"
+    ]
+  }
+}

@@ -1,0 +1,24 @@
+# Rust / Cargo
+/target/
+**/*.rs.bk
+*.pdb
+
+# Databases & Local Runtime State
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sock
+
+# OS & Editors
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.swp
+
+# Temporary & Scratch Artifacts
+/scratch/
+/vendor/
+*.log
