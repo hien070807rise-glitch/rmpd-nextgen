@@ -1,0 +1,200 @@
+{
+  "Brahms - Piano Concertos (Kovacevich, Sawallisch)": {
+    "cat": "Classical",
+    "cover": "pl_01.png",
+    "hue": [
+      72,
+      92,
+      76
+    ],
+    "tag": "CLASSICAL  ·  EMI CLASSICS  ·  1991–1994",
+    "desc": "Stephen Kovacevich and Wolfgang Sawallisch's Abbey Road cycle with the London Philharmonic, paired with Brahms's Two Songs, Op. 91."
+  },
+  "Brahms - Symphony No. 3 - Münchner Philharmoniker, Zubin Mehta (2024) [24-96]": {
+    "cat": "Classical",
+    "cover": "pl_02.png",
+    "hue": [
+      79,
+      107,
+      84
+    ],
+    "tag": "CLASSICAL  ·  WARNER CLASSICS  ·  2024",
+    "desc": "Zubin Mehta's live Munich Philharmonic account of the Third Symphony, shaped with unhurried autumnal warmth and lucid inner balances."
+  },
+  "Brahms - Symphony No. 3, Violin Concerto - Yehudi Menuhin, Wilhelm Furtwängler (2012) [24-48]": {
+    "cat": "Classical",
+    "cover": "pl_03.png",
+    "hue": [
+      96,
+      90,
+      78
+    ],
+    "tag": "CLASSICAL  ·  HISTORICAL ARCHIVE  ·  1949",
+    "desc": "Historic 1949 documents uniting Wilhelm Furtwängler's Berlin Third Symphony and the Lucerne Violin Concerto with Yehudi Menuhin."
+  },
+  "Chopin. Complete Edition (DG 2009)": {
+    "cat": "Classical",
+    "cover": "pl_04.png",
+    "hue": [
+      104,
+      94,
+      72
+    ],
+    "tag": "CLASSICAL  ·  DEUTSCHE GRAMMOPHON  ·  17-CD SURVEY",
+    "desc": "Bicentenary complete survey uniting benchmark Chopin readings by Zimerman, Pollini, Argerich, Ashkenazy, Pires, Arrau, and Blechacz."
+  },
+  "Christmas music": {
+    "cat": "Classical",
+    "cover": "pl_05.png",
+    "hue": [
+      54,
+      76,
+      61
+    ],
+    "tag": "CLASSICAL  ·  CURATED SEASONAL PROGRAM",
+    "desc": "Winter and Nativity sequence pairing Liszt's Weihnachtsbaum and Rachmaninoff's All-Night Vigil with Tchaikovsky, Prokofiev, and Vaughan Williams."
+  },
+  "Claude Debussy - The Complete Works - 2018": {
+    "cat": "Classical",
+    "cover": "pl_06.png",
+    "hue": [
+      64,
+      92,
+      86
+    ],
+    "tag": "CLASSICAL  ·  WARNER CLASSICS  ·  33-CD EDITION",
+    "desc": "Denis Herlin's 2018 centenary edition encompassing Debussy's complete oeuvre alongside world premieres and the composer's own 1904 recordings."
+  },
+  "Daniil Trifonov, PO, Yannick Nezet-Seguin - Destination Rachmaninov Arrival (2019) [24-96]": {
+    "cat": "Classical",
+    "cover": "pl_07.png",
+    "hue": [
+      70,
+      92,
+      78
+    ],
+    "tag": "CLASSICAL  ·  DEUTSCHE GRAMMOPHON  ·  2019",
+    "desc": "Second volume with Yannick Nézet-Séguin and The Philadelphia Orchestra: Concertos Nos. 1 & 3 framed by Trifonov's Vocalise and Silver Sleigh Bells."
+  },
+  "Franz Liszt - The Great Piano Works - 2017": {
+    "cat": "Classical",
+    "cover": "pl_08.png",
+    "hue": [
+      82,
+      88,
+      74
+    ],
+    "tag": "CLASSICAL  ·  BRILLIANT CLASSICS  ·  15-CD SURVEY",
+    "desc": "Fifteen-disc piano panorama anchored by Vincenzo Maltempo, Sandro Ivo Bartoli, and Igor Roma across Années de pèlerinage and the B minor Sonata."
+  },
+  "Krystian Zimerman - Rachmaninov Nos.1-2": {
+    "cat": "Classical",
+    "cover": "pl_09.png",
+    "hue": [
+      74,
+      96,
+      78
+    ],
+    "tag": "CLASSICAL  ·  DEUTSCHE GRAMMOPHON  ·  2003",
+    "desc": "Recorded in Boston's Symphony Hall with Seiji Ozawa, illuminating Piano Concertos Nos. 1 & 2 with crystalline structural clarity and poise."
+  },
+  "Lupu, Radu. Complete Decca solo recordings": {
+    "cat": "Classical",
+    "cover": "pl_10.png",
+    "hue": [
+      62,
+      78,
+      66
+    ],
+    "tag": "CLASSICAL  ·  DECCA  ·  CORSEAUX 1993",
+    "desc": "Radu Lupu's celebrated Swiss Schumann recitals pairing Humoreske, Kinderszenen, and Kreisleriana in unhurried, poetic inwardness."
+  },
+  "Rachmaninoff - Piano Concerto No. 3 - Vladimir Horowitz (2023) [24-96]": {
+    "cat": "Classical",
+    "cover": "pl_11_v2.png",
+    "hue": [
+      104,
+      92,
+      72
+    ],
+    "tag": "CLASSICAL  ·  RCA CARNEGIE HALL  ·  1951 / 2023",
+    "desc": "Vladimir Horowitz and Fritz Reiner's volcanic May 1951 Carnegie Hall reading of the Third Concerto with the RCA Victor Symphony Orchestra."
+  },
+  "Sergei Rachmaninov - The Complete Works - 2014": {
+    "cat": "Classical",
+    "cover": "pl_12.png",
+    "hue": [
+      76,
+      86,
+      78
+    ],
+    "tag": "CLASSICAL  ·  DECCA  ·  32-CD EDITION",
+    "desc": "Comprehensive thirty-two-disc survey anchored by Vladimir Ashkenazy at the keyboard and podium alongside Richter, Janis, Argerich, and Haitink."
+  },
+  "Seven Days Walking": {
+    "cat": "Classical",
+    "cover": "pl_13.png",
+    "hue": [
+      86,
+      98,
+      86
+    ],
+    "tag": "CLASSICAL  ·  DECCA  ·  LUDOVICO EINAUDI 2019",
+    "desc": "Seven interconnected Alpine winter walks revisiting shifting variations on Low Mist, Cold Wind, and Golden Butterflies before solitude on Day 7."
+  },
+  "Shigatsu wa Kimi no Uso OST [FLAC]": {
+    "cat": "Classical",
+    "cover": "pl_14.png",
+    "hue": [
+      108,
+      86,
+      84
+    ],
+    "tag": "CLASSICAL  ·  OUR MUSIC BOOK  ·  SHINOHARA & SAKATA",
+    "desc": "Complete uncut classical competition performances from Your Lie in April by violinist Yuna Shinohara and pianists Tomoki Sakata and Eriko Kawachi."
+  },
+  "Radiohead - 1995 - The Bends [PBTHAL 2020] (UK)": {
+    "cat": "Modern",
+    "cover": "pl_15.png",
+    "hue": [
+      92,
+      82,
+      76
+    ],
+    "tag": "MODERN  ·  PARLOPHONE UK  ·  1995",
+    "desc": "Radiohead's breakthrough second album balancing razor-edged Britpop guitars on Just and My Iron Lung with acoustic elegies like Street Spirit."
+  },
+  "Radiohead - OK Computer OKNOTOK 1997 2017 (2017) [WEB-FLAC 24-96]": {
+    "cat": "Modern",
+    "cover": "pl_16.png",
+    "hue": [
+      66,
+      86,
+      78
+    ],
+    "tag": "MODERN  ·  XL RECORDINGS  ·  1997 / 2017",
+    "desc": "Twentieth-anniversary remaster of OK Computer united with B-sides and three previously unreleased studio tracks: I Promise, Man of War, and Lift."
+  },
+  "Radiohead-Hail to the Thief (Live Recordings 2003-2009)-(2025)": {
+    "cat": "Modern",
+    "cover": "pl_17.png",
+    "hue": [
+      98,
+      72,
+      66
+    ],
+    "tag": "MODERN  ·  XL RECORDINGS  ·  2003–2009 / 2025",
+    "desc": "Official 2025 archival live album drawn from 2003–2009 concerts across London, Amsterdam, Buenos Aires, and Dublin, sparked by Hamlet Hail to the Thief."
+  },
+  "Your lie in april": {
+    "cat": "Modern",
+    "cover": "pl_18.png",
+    "hue": [
+      106,
+      88,
+      86
+    ],
+    "tag": "MODERN  ·  MASARU YOKOYAMA  ·  ANIPLEX",
+    "desc": "Masaru Yokoyama's lyrical chamber anime score intertwined with vocal themes by Goose house, wacci, and seven oops."
+  }
+}

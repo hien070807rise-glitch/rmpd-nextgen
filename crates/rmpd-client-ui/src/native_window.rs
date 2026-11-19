@@ -384,11 +384,34 @@ impl VerdantEngawaApp {
             .map(PathBuf::from)
             .unwrap_or_else(|| PathBuf::from("."));
         let verdant_root = appdata.join("foobar2000-v2").join("verdant");
-        let json_path = verdant_root.join("data").join("verdant-collections.json");
-        let covers_dir = verdant_root.join("assets").join("covers");
+        let exe_dir = std::env::current_exe()
+            .ok()
+            .and_then(|p| p.parent().map(|d| d.to_path_buf()))
+            .unwrap_or_else(|| PathBuf::from("."));
 
-        let json_str = std::fs::read_to_string(&json_path)
-            .unwrap_or_else(|_| DEFAULT_COLLECTIONS_JSON.to_string());
+        // Multi-tier asset resolution:
+        // 1. Local repo assets/ (works when cloned or run from repo)
+        // 2. Bundled exe_dir/assets/ (works for portable binary distribution)
+        // 3. System foobar2000 verdant/ (machine-specific fallback)
+        let json_candidates = [
+            PathBuf::from("assets").join("data").join("verdant-collections.json"),
+            exe_dir.join("assets").join("data").join("verdant-collections.json"),
+            verdant_root.join("data").join("verdant-collections.json"),
+        ];
+        let json_str = json_candidates
+            .iter()
+            .find_map(|p| std::fs::read_to_string(p).ok())
+            .unwrap_or_else(|| DEFAULT_COLLECTIONS_JSON.to_string());
+
+        let covers_candidates = [
+            PathBuf::from("assets").join("covers"),
+            exe_dir.join("assets").join("covers"),
+            verdant_root.join("assets").join("covers"),
+        ];
+        let covers_dir = covers_candidates
+            .into_iter()
+            .find(|p| p.is_dir())
+            .unwrap_or_else(|| PathBuf::from("assets").join("covers"));
         let mut curated = load_curated_collections(&json_str).unwrap_or_default();
         // Sort Classical first, then Modern, preserving alphabetical order inside each category
         curated.sort_by(|a, b| {
@@ -400,12 +423,32 @@ impl VerdantEngawaApp {
         let mut collections = Vec::with_capacity(curated.len());
         let mut all_tracks = Vec::new();
 
+        // Scan music folders across priority paths:
+        // 1. User specified local music folder in repo or portable dir (`./Music` or `./music`)
+        // 2. Standard system music folder (`%USERPROFILE%/Music`)
+        // 3. User external drive (`G:/Music`)
+        let music_roots = [
+            PathBuf::from("Music"),
+            PathBuf::from("music"),
+            exe_dir.join("Music"),
+            exe_dir.join("music"),
+            std::env::var_os("USERPROFILE")
+                .map(|p| PathBuf::from(p).join("Music"))
+                .unwrap_or_else(|| PathBuf::from(".")),
+            PathBuf::from(r"G:\Music"),
+        ];
+
         for (c_idx, meta) in curated.into_iter().enumerate() {
-            let folder = PathBuf::from(r"G:\Music")
-                .join(&meta.category)
-                .join(&meta.name);
             let mut audio_files = Vec::new();
-            Self::collect_audio_files_fast(&folder, &mut audio_files, 0);
+            for root in &music_roots {
+                let folder = root.join(&meta.category).join(&meta.name);
+                if folder.is_dir() {
+                    Self::collect_audio_files_fast(&folder, &mut audio_files, 0);
+                    if !audio_files.is_empty() {
+                        break;
+                    }
+                }
+            }
             audio_files.sort();
 
             let default_artist = Self::infer_collection_artist(&meta.name, &meta.tag_line);
@@ -413,14 +456,14 @@ impl VerdantEngawaApp {
             let mut total_dur = 0u64;
 
             if audio_files.is_empty() {
-                // Fallback representative tracks if external drive G:\ is unmounted
+                // Self-contained demo tracks so the app runs gracefully out-of-the-box on ANY machine
                 let cw = parse_work_and_movement(&meta.name);
                 let tr = TrackEntry {
                     title: format!("{} — I. Opening Movement", meta.name),
                     artist: default_artist.clone(),
                     album: meta.name.clone(),
                     collection_idx: c_idx,
-                    path: folder.join("01.flac"),
+                    path: PathBuf::from(format!("sample://{}", meta.cover_file)),
                     duration_secs: 340,
                     work_title: cw.work_title,
                     movement_title: cw.movement_title,
@@ -643,11 +686,37 @@ impl VerdantEngawaApp {
         let path = track.path.clone();
 
         std::thread::spawn(move || {
-            if !path.exists() {
-                return;
-            }
-            let Ok((fmt, samples)) = SymphoniaDecoder::decode_file(&path) else {
-                return;
+            let (fmt, samples) = if path.exists() {
+                let Ok((f, s)) = SymphoniaDecoder::decode_file(&path) else {
+                    return;
+                };
+                (f, s)
+            } else {
+                // If audio files are not yet downloaded on a fresh clone, generate a pleasant harmonic tone
+                // so CPAL WASAPI hardware playback and 72-band FFT visualizer work out-of-the-box!
+                let sr = 48_000u32;
+                let ch = 2u16;
+                let duration_samples = (sr as usize) * 180; // 3 min tone
+                let mut pcm = Vec::with_capacity(duration_samples * 2);
+                for i in 0..duration_samples {
+                    let t = (i as f32) / (sr as f32);
+                    let env = (t * 0.5).min(1.0) * ((180.0 - t) * 0.5).clamp(0.0, 1.0);
+                    // Harmonious A4 (440 Hz) + E5 (660 Hz) chord
+                    let s1 = (2.0 * std::f32::consts::PI * 440.0 * t).sin();
+                    let s2 = (2.0 * std::f32::consts::PI * 660.0 * t).sin() * 0.5;
+                    let v = (s1 + s2) * 0.12 * env;
+                    pcm.push(v);
+                    pcm.push(v);
+                }
+                (
+                    rmpd_player::AudioFormat {
+                        sample_rate: sr,
+                        channels: ch,
+                        bits_per_sample: 24,
+                        is_dsd: false,
+                    },
+                    pcm,
+                )
             };
             let total_frames = samples.len() / (fmt.channels.max(1) as usize);
             let calc_secs = (total_frames as f32) / (fmt.sample_rate.max(1) as f32);
