@@ -1,5 +1,6 @@
-use rmpd_client_ui::{render_headless_snapshot, MpdSocketClient, UiAppState};
-use rmpd_dsp::FftTelemetryFrame;
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
+use rmpd_client_ui::{run_native_engawa_window, ThemePreset};
 use rmpd_launcher::{resolve_runtime_paths, spawn_embedded_daemon, SingleInstanceLock};
 use rmpd_library::LibraryDb;
 use std::env;
@@ -36,22 +37,27 @@ fn main() {
 
     let _ = fs::create_dir_all(&paths.data_dir);
     let _ = fs::create_dir_all(&paths.art_cache_dir);
-    let db = LibraryDb::open(&paths.library_db).expect("open SQLite FTS5 library.db");
+    let mut db = LibraryDb::open(&paths.library_db).expect("open SQLite FTS5 library.db");
+
+    // Seed sample classical entries if library is brand new so first-run UI is immediately populated
+    if db.track_count().unwrap_or(0) == 0 {
+        let _ = db.upsert_track(
+            "sample://brahms_sym3_mehta.flac",
+            "Symphony No. 3 in F major, Op. 90 — I. Allegro con brio",
+            "Zubin Mehta · Münchner Philharmoniker",
+            "Brahms - Symphony No. 3 (2024) [24-96]",
+            580_000,
+        );
+        let _ = db.upsert_track(
+            "sample://chopin_ballade1_zimerman.flac",
+            "Ballade No. 1 in G minor, Op. 23",
+            "Krystian Zimerman",
+            "Chopin Complete Edition (DG)",
+            540_000,
+        );
+    }
+
     let daemon = spawn_embedded_daemon("127.0.0.1:0", db).expect("spawn embedded daemon");
-
-    let mut client = MpdSocketClient::connect(daemon.addr).expect("connect UI to daemon");
-    let status = client.send_command("status").unwrap_or_default();
-
-    let app = UiAppState::new();
-    let fb = render_headless_snapshot(1280, 720, &app, &FftTelemetryFrame::default());
-    println!(
-        "RMPD-NextGen launched (portable={}, mpd={}, frame_bytes={})\n{}",
-        paths.portable_mode,
-        daemon.addr,
-        fb.len(),
-        status.trim()
-    );
-
-    let _ = client.send_command("close");
+    let _ = run_native_engawa_window(daemon.addr, ThemePreset::Default);
     daemon.handle.shutdown();
 }

@@ -1,5 +1,8 @@
 #![forbid(unsafe_code)]
 
+pub mod native_window;
+pub use native_window::run_native_engawa_window;
+
 use rmpd_dsp::{FftTelemetryFrame, VIZ_BAND_COUNT};
 use std::fs::File;
 use std::io::{BufRead, BufReader, Write};
