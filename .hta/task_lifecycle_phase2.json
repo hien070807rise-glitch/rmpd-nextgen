@@ -1,0 +1,11 @@
+{
+  "project_id": "RMPD-NEXTGEN-PHASE2-HARDWARE-AND-FOOBAR-PARITY",
+  "route": "DEEP_DAG_ROUTE",
+  "workflow_status": "PLANNED",
+  "total_planned_steps": 9,
+  "last_healthy_step": null,
+  "checkpoint_order": [],
+  "checkpoints": {},
+  "steps": {},
+  "rejected_heuristics": []
+}

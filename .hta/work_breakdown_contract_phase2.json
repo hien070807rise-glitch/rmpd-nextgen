@@ -1,0 +1,240 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "project_id": "RMPD-NEXTGEN-PHASE2-HARDWARE-AND-FOOBAR-PARITY",
+  "functional_purpose": "Giai đoạn 2 (Hardware Wiring & Live Foobar2000 Parity): Nối bộ giải mã Symphonia + CPAL WASAPI/ASIO vật lý, cửa sổ GPU Native (Slint/iced) cho 8 Views Verdant Engawa, OS Media/Discord RPC/Tray thật, đóng gói bộ cài đặt .msi/.AppImage/.dmg, và thực thi Quy trình Đối chiếu Song song 5 Trục (5-Axis Parity Audit) với bản foobar2000 + Verdant đang chạy trong máy.",
+  "triage_4_variables": {
+    "complexity": "HIGH",
+    "uncertainty": "MEDIUM",
+    "risk": "MEDIUM",
+    "reversibility": "PARTIALLY_REVERSIBLE",
+    "domain_count": 5,
+    "selected_route": "DEEP_DAG_ROUTE"
+  },
+  "control_plane_config": {
+    "lifecycle_state_file": ".hta/task_lifecycle_phase2.json",
+    "max_retries_per_node": 2,
+    "independent_quality_gate_required": true,
+    "orchestration_roles": {
+      "architect_model": "pro",
+      "expediter_model": "flash"
+    }
+  },
+  "abstract_mechanisms": [
+    "5-Axis Live Parity Protocol: Đối chiếu tất định giữa G:/Music/foobar2000 + AppData/verdant và rmpd-nextgen trên 5 trục (Design Tokens, Classical/Library Data, DSP/72-Band FFT, 8-View UX/Integrations, RAM/Startup Benchmark).",
+    "Hardware & Native GPU Wiring: Thay thế mock/headless adapter bằng Symphonia + CPAL WASAPI Exclusive/ASIO, Slint/iced GPU window, souvlaki SMTC/MPRIS2, discord-rich-presence và WiX v4 .msi.",
+    "3-Model Load Balancing: Xoay quanh Argon (High), Neon (High/Medium), Hydrogen (High/Medium) với tối đa 1 luồng Argon/Wave và cô lập tuyệt đối target_scope."
+  ],
+  "milestones": [
+    {
+      "milestone_id": "M8",
+      "name": "Trích Xuất Baseline Foobar2000 + Verdant Cục Bộ & Khóa Hợp Đồng Đối Chiếu 5 Trục",
+      "status": "ACTIVE_WINDOW",
+      "exit_criteria": "Chạy foobar_verdant_parity_auditor.py thu thập baseline từ G:/Music/foobar2000 & AppData/verdant và khóa 5-Axis Parity Contract."
+    },
+    {
+      "milestone_id": "M9",
+      "name": "Nối Bộ Giải Mã Symphonia + Driver CPAL (WASAPI/ASIO) & Lofty/LRCLIB Thật",
+      "status": "ACTIVE_WINDOW",
+      "exit_criteria": "Phát file nhạc thật (.flac/.mp3/.opus/.dsf) ra DAC/loa vật lý 0 xrun, ghi tag thật qua lofty và tải lyrics trực tuyến từ lrclib.net."
+    },
+    {
+      "milestone_id": "M10",
+      "name": "Nối Cửa Sổ GPU Native (Slint/iced) Hiển Thị 8 Views Verdant Engawa & 60fps FFT",
+      "status": "HORIZON_LOCKED",
+      "exit_criteria": "Mở cửa sổ frameless GPU thật hiển thị đúng màu Basalt/Washi, 4 presets, 8 Views, virtualized list và 72-band FFT nhảy theo nhạc thật ở 60fps."
+    },
+    {
+      "milestone_id": "M11",
+      "name": "Kích Hoạt Windows SMTC / MPRIS2 / Discord IPC Thật & System Tray Launcher",
+      "status": "HORIZON_LOCKED",
+      "exit_criteria": "Hiện điều khiển nhạc trên Windows Lock Screen/Volume Flyout, cập nhật trạng thái lên ứng dụng Discord cục bộ và thu nhỏ xuống System Tray."
+    },
+    {
+      "milestone_id": "M12",
+      "name": "Kiểm Toán Đối Chiếu Song Song 5 Trục (A/B Parity Audit vs. Local Foobar2000)",
+      "status": "HORIZON_LOCKED",
+      "exit_criteria": "Đạt 100% khớp Design Tokens & Classical Parser, sai lệch FFT/EBU R128 trong ngưỡng cho phép, RAM và thời gian khởi động vượt trội so với foobar2000."
+    },
+    {
+      "milestone_id": "M13",
+      "name": "Xuất Bộ Cài Đặt .msi (WiX v4) / .AppImage / .dmg & Nghiệm Thu Cổng 4 Trụ Cột",
+      "status": "HORIZON_LOCKED",
+      "exit_criteria": "Biên dịch file cài đặt .msi + Portable .zip, hoàn tất SHA256SUMS và đạt APPROVED_VERIFIED tại independent_quality_gate.py."
+    }
+  ],
+  "active_window_tasks": [
+    {
+      "task_id": "T-08.01",
+      "milestone_id": "M8",
+      "name": "Quét Baseline thực tế từ G:/Music/foobar2000 & AppData/Roaming/foobar2000-v2/verdant",
+      "dependencies": [],
+      "assigned_skill": "scholarly-deep-research",
+      "execution_mode": "ISOLATED_SUBAGENT",
+      "assigned_model": "flash",
+      "recommended_engine": "Gemini Hydrogen (High)",
+      "station_role": "PREP",
+      "permission_zone": "READ_ONLY",
+      "target_scope": ["scratch/parity_baseline"],
+      "firing_wave": 1,
+      "requires_human_approval": false,
+      "emits_artifacts": ["ResearchReportContract"],
+      "token_budget": 2500,
+      "acceptance_criteria": "Trích xuất đầy đủ bảng mã màu RGB, 4 regex classical_work, danh sách verdant-collections.json, thông số FFT 72-band và footprint của foobar2000.exe."
+    },
+    {
+      "task_id": "T-08.02",
+      "milestone_id": "M8",
+      "name": "Thiết lập Hợp đồng Tích hợp Phần cứng & Khung Đối chiếu 5 Trục (5-Axis Parity Spec)",
+      "dependencies": ["T-08.01"],
+      "assigned_skill": "institutional-and-policy-design",
+      "execution_mode": "SKILL_PROTOCOL",
+      "assigned_model": "inherit",
+      "recommended_engine": "Argon (High)",
+      "station_role": "STATION",
+      "permission_zone": "SANDBOX_COMPUTE",
+      "target_scope": ["contracts/phase2_parity"],
+      "firing_wave": 2,
+      "requires_human_approval": false,
+      "consumes_artifacts": ["ResearchReportContract"],
+      "emits_artifacts": ["PolicyDesignBlueprint"],
+      "token_budget": 2500,
+      "acceptance_criteria": "Khóa cứng ngưỡng nghiệm thu 5 trục (RGB diff = 0, Classical match = 100%, EBU R128 <= 0.1 LU, Startup < 50ms, RAM < 35MB)."
+    },
+    {
+      "task_id": "T-09.01",
+      "milestone_id": "M9",
+      "name": "Nối Symphonia Decoder + CPAL (WASAPI Exclusive/ASIO) phát file nhạc thật & bơm PCM vào FFT Tap",
+      "dependencies": ["T-08.02"],
+      "assigned_skill": "software-engineering-orchestrator",
+      "execution_mode": "ISOLATED_SUBAGENT",
+      "assigned_model": "pro",
+      "recommended_engine": "Argon (High)",
+      "station_role": "STATION",
+      "permission_zone": "WORKSPACE_WRITE",
+      "target_scope": ["crates/rmpd-player", "crates/rmpd-dsp"],
+      "firing_wave": 3,
+      "requires_human_approval": false,
+      "consumes_artifacts": ["PolicyDesignBlueprint"],
+      "emits_artifacts": ["VerifiedCodebase", "TestReport"],
+      "token_budget": 4500,
+      "acceptance_criteria": "Giải mã và phát file .flac/.mp3/.opus/.wav thật qua CPAL WASAPI với 0 heap alloc trong callback và chuyển đổi sample-rate êm dịu."
+    },
+    {
+      "task_id": "T-09.02",
+      "milestone_id": "M9",
+      "name": "Nối lofty đọc/ghi Tag thật, notify File Watcher cho SQLite FTS5 & HTTP Client gọi lrclib.net",
+      "dependencies": ["T-08.02"],
+      "assigned_skill": "software-engineering-orchestrator",
+      "execution_mode": "ISOLATED_SUBAGENT",
+      "assigned_model": "flash",
+      "recommended_engine": "Gemini Hydrogen (Medium)",
+      "station_role": "STATION",
+      "permission_zone": "WORKSPACE_WRITE",
+      "target_scope": ["crates/rmpd-tagger", "crates/rmpd-library"],
+      "firing_wave": 3,
+      "requires_human_approval": false,
+      "consumes_artifacts": ["PolicyDesignBlueprint"],
+      "emits_artifacts": ["VerifiedCodebase", "TestReport"],
+      "token_budget": 3000,
+      "acceptance_criteria": "Quét thư mục nhạc thật vào SQLite FTS5, đọc/ghi tag thật bằng lofty và lấy lyrics từ lrclib.net tuân thủ 1-in-flight + cache miss 30 ngày."
+    },
+    {
+      "task_id": "T-10.01",
+      "milestone_id": "M10",
+      "name": "Nối Cửa sổ GPU Native (Slint/iced) cho 8 Views Verdant Engawa, Frameless Bar & 60fps 72-Band FFT",
+      "dependencies": ["T-09.01", "T-09.02"],
+      "assigned_skill": "creative-ui-and-visual-arts",
+      "execution_mode": "ISOLATED_SUBAGENT",
+      "assigned_model": "pro",
+      "recommended_engine": "Gemini Neon (High)",
+      "station_role": "STATION",
+      "permission_zone": "WORKSPACE_WRITE",
+      "target_scope": ["crates/rmpd-client-ui"],
+      "firing_wave": 4,
+      "requires_human_approval": false,
+      "consumes_artifacts": ["VerifiedCodebase", "TestReport"],
+      "emits_artifacts": ["InteractiveUIComponent"],
+      "token_budget": 4500,
+      "acceptance_criteria": "Hiển thị cửa sổ GPU thật khớp 100% bảng màu Engawa Basalt/Washi, 4 presets, 8 Views, cuộn mượt danh sách lớn và vẽ FFT 60fps."
+    },
+    {
+      "task_id": "T-10.02",
+      "milestone_id": "M11",
+      "name": "Nối Windows SMTC / Linux MPRIS2, Local Discord IPC Pipe & System Tray trong rmpd-launcher",
+      "dependencies": ["T-09.01"],
+      "assigned_skill": "software-engineering-orchestrator",
+      "execution_mode": "ISOLATED_SUBAGENT",
+      "assigned_model": "flash",
+      "recommended_engine": "Gemini Neon (Medium)",
+      "station_role": "STATION",
+      "permission_zone": "WORKSPACE_WRITE",
+      "target_scope": ["crates/rmpd-os-media", "crates/rmpd-launcher"],
+      "firing_wave": 4,
+      "requires_human_approval": false,
+      "consumes_artifacts": ["VerifiedCodebase", "TestReport"],
+      "emits_artifacts": ["VerifiedCodebase", "TestReport"],
+      "token_budget": 3000,
+      "acceptance_criteria": "Điều khiển phát nhạc từ Windows SMTC/phím cứng, đẩy bài đang phát lên Discord client cục bộ và thu gọn xuống System Tray."
+    },
+    {
+      "task_id": "T-11.01",
+      "milestone_id": "M12",
+      "name": "Chạy Kiểm toán Đối chiếu Tự động 5 Trục (foobar_verdant_parity_auditor.py) giữa Foobar2000 & RMPD-NextGen",
+      "dependencies": ["T-10.01", "T-10.02"],
+      "assigned_skill": "applied-mathematics-and-modeling",
+      "execution_mode": "DETERMINISTIC_TOOL",
+      "station_role": "PASS_GATE",
+      "permission_zone": "SANDBOX_COMPUTE",
+      "target_scope": ["scripts", "scratch/parity_reports"],
+      "firing_wave": 5,
+      "requires_human_approval": false,
+      "consumes_artifacts": ["InteractiveUIComponent", "VerifiedCodebase", "TestReport"],
+      "emits_artifacts": ["MathProofCapsule", "Solution"],
+      "token_budget": 1500,
+      "acceptance_criteria": "Xuất báo cáo parity_audit_report.json đạt 100% trên Trục 1 (Tokens), Trục 2 (Classical/Collections), Trục 3 (FFT/R128) và Trục 5 (Footprint)."
+    },
+    {
+      "task_id": "T-11.02",
+      "milestone_id": "M12",
+      "name": "Kiểm thử E2E A/B Parity trên dữ liệu thật của máy & Quét An toàn Bảo mật (swe_security_auditor.py)",
+      "dependencies": ["T-10.01", "T-10.02"],
+      "assigned_skill": "software-engineering-orchestrator",
+      "execution_mode": "ISOLATED_SUBAGENT",
+      "assigned_model": "pro",
+      "recommended_engine": "Argon (High)",
+      "station_role": "STATION",
+      "permission_zone": "WORKSPACE_WRITE",
+      "target_scope": ["crates/rmpd-launcher/tests"],
+      "firing_wave": 5,
+      "requires_human_approval": false,
+      "consumes_artifacts": ["InteractiveUIComponent", "VerifiedCodebase", "TestReport"],
+      "emits_artifacts": ["VerifiedCodebase", "TestReport"],
+      "token_budget": 3000,
+      "acceptance_criteria": "Pass toàn bộ bài test đối chiếu trên tập verdant-collections.json thật và đạt 0 vi phạm bảo mật."
+    },
+    {
+      "task_id": "T-12.01",
+      "milestone_id": "M13",
+      "name": "Biên dịch Bộ cài đặt .msi (WiX v4) + Portable .zip, Ký SHA256SUMS & Nghiệm thu Cổng 4 Trụ cột",
+      "dependencies": ["T-11.01", "T-11.02"],
+      "assigned_skill": "software-engineering-orchestrator",
+      "execution_mode": "ISOLATED_SUBAGENT",
+      "assigned_model": "flash",
+      "recommended_engine": "Gemini Hydrogen (Medium)",
+      "station_role": "STATION",
+      "permission_zone": "WORKSPACE_WRITE",
+      "target_scope": ["packaging/dist", "ci/release_pipeline", "docs/user_guide"],
+      "firing_wave": 6,
+      "requires_human_approval": false,
+      "consumes_artifacts": ["MathProofCapsule", "VerifiedCodebase", "TestReport"],
+      "emits_artifacts": ["VerifiedCodebase", "TestReport"],
+      "token_budget": 2500,
+      "acceptance_criteria": "Tạo gói .msi và Portable .zip hoàn chỉnh, cập nhật SHA256SUMS.txt và đạt APPROVED_VERIFIED tại independent_quality_gate.py."
+    }
+  ],
+  "token_budget_summary": {
+    "allocated_window_tokens": 27000,
+    "max_project_budget": 45000,
+    "prompt_cache_preservation_target": "90%"
+  }
+}

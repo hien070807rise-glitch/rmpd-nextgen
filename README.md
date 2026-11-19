@@ -18,7 +18,10 @@
 9. `crates/rmpd-launcher` — Bộ khởi chạy 1-click: tự động bật/nối Daemon ngầm, System Tray và Watchdog.
 
 ## Tài liệu Điều phối (`.hta/`)
-- [BLUEPRINT.md](./BLUEPRINT.md) — Bản thiết kế tổng thể & hướng dẫn chạy tự động.
+- [BLUEPRINT.md](./BLUEPRINT.md) — Bản thiết kế Giai đoạn 1 (9 Crates Core & Portable Release — `COMPLETED`).
+- [BLUEPRINT_PHASE2_HARDWARE_AND_PARITY.md](./BLUEPRINT_PHASE2_HARDWARE_AND_PARITY.md) — Bản thiết kế Giai đoạn 2 (Nối phần cứng WASAPI/ASIO, cửa sổ GPU Native & Quy trình Đối chiếu 5 Trục với `foobar2000 + Verdant`).
+- [scripts/foobar_verdant_parity_auditor.py](./scripts/foobar_verdant_parity_auditor.py) — Công cụ kiểm toán đối chiếu tự động 5 trục với bản `foobar2000` và `Verdant` trong máy.
 - [.hta/state_capsule.json](./.hta/state_capsule.json) — Trạng thái nén và các tiên đề khóa cứng.
-- [.hta/work_breakdown_contract.json](./.hta/work_breakdown_contract.json) — Hợp đồng DAG 12 tác vụ / 8 Waves đã kiểm toán.
-- [.hta/task_lifecycle.json](./.hta/task_lifecycle.json) — Máy trạng thái vòng đời tác vụ (`PLANNED`).
+- [.hta/work_breakdown_contract.json](./.hta/work_breakdown_contract.json) — Hợp đồng DAG Giai đoạn 1 (`COMPLETED`).
+- [.hta/work_breakdown_contract_phase2.json](./.hta/work_breakdown_contract_phase2.json) — Hợp đồng DAG Giai đoạn 2 (9 tác vụ / 6 Waves đã kiểm toán `PASS`).
+- [.hta/task_lifecycle.json](./.hta/task_lifecycle.json) & [.hta/task_lifecycle_phase2.json](./.hta/task_lifecycle_phase2.json) — Máy trạng thái vòng đời tác vụ.
