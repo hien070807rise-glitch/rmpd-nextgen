@@ -1,3 +1,7 @@
+use lofty::config::WriteOptions;
+use lofty::prelude::*;
+use lofty::probe::Probe;
+use lofty::tag::{Tag, TagType};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::{self, File};
@@ -28,8 +32,6 @@ impl AtomicFileWriter {
             f.sync_all()?;
         }
 
-        // On Windows fs::rename overwrites existing target in modern Rust std when possible,
-        // fallback removes target after safe backup swap if OS blocks overwrite.
         if let Err(err) = fs::rename(&tmp_path, target) {
             if target.exists() {
                 let bak_path = target.with_file_name(format!(".{file_name}.bak.{pid}"));
@@ -47,6 +49,100 @@ impl AtomicFileWriter {
             }
         }
         Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AudioTagMetadata {
+    pub title: Option<String>,
+    pub artist: Option<String>,
+    pub album: Option<String>,
+    pub track_number: Option<u32>,
+    pub duration_ms: u64,
+}
+
+/// Real `lofty`-backed tag reader and atomic tag writer for WAV/FLAC/MP3/Ogg/MP4.
+pub struct LoftyTagEngine;
+
+impl LoftyTagEngine {
+    pub fn read_from_path(path: &Path) -> Result<AudioTagMetadata, String> {
+        let tagged_file = Probe::open(path)
+            .map_err(|e| format!("lofty open error: {e}"))?
+            .read()
+            .map_err(|e| format!("lofty read error: {e}"))?;
+
+        let duration_ms = tagged_file.properties().duration().as_millis() as u64;
+        let tag = tagged_file
+            .primary_tag()
+            .or_else(|| tagged_file.first_tag());
+
+        if let Some(t) = tag {
+            Ok(AudioTagMetadata {
+                title: t.title().map(|s| s.into_owned()),
+                artist: t.artist().map(|s| s.into_owned()),
+                album: t.album().map(|s| s.into_owned()),
+                track_number: t.track(),
+                duration_ms,
+            })
+        } else {
+            Ok(AudioTagMetadata {
+                duration_ms,
+                ..Default::default()
+            })
+        }
+    }
+
+    /// Write tags safely via an atomic sibling temp-file copy so power loss never corrupts the audio file.
+    pub fn write_atomic_to_path(path: &Path, meta: &AudioTagMetadata) -> Result<(), String> {
+        let orig_bytes = fs::read(path).map_err(|e| format!("read original error: {e}"))?;
+        let pid = std::process::id();
+        let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("track");
+        let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("wav");
+        let tmp_path = path.with_file_name(format!(".{file_name}.lofty.{pid}.{ext}"));
+
+        fs::write(&tmp_path, &orig_bytes).map_err(|e| format!("write temp error: {e}"))?;
+
+        let mut tagged_file = match Probe::open(&tmp_path).and_then(|p| p.read()) {
+            Ok(tf) => tf,
+            Err(e) => {
+                let _ = fs::remove_file(&tmp_path);
+                return Err(format!("lofty probe temp error: {e}"));
+            }
+        };
+
+        let tag_type = tagged_file.primary_tag_type();
+        if tagged_file.tag(tag_type).is_none() {
+            tagged_file.insert_tag(Tag::new(TagType::Id3v2));
+        }
+        let target_tag = if tagged_file.primary_tag().is_some() {
+            tagged_file.primary_tag_mut()
+        } else {
+            tagged_file.first_tag_mut()
+        }
+        .ok_or_else(|| "no writable tag container".to_string())?;
+
+        if let Some(ref title) = meta.title {
+            target_tag.set_title(title.clone());
+        }
+        if let Some(ref artist) = meta.artist {
+            target_tag.set_artist(artist.clone());
+        }
+        if let Some(ref album) = meta.album {
+            target_tag.set_album(album.clone());
+        }
+        if let Some(tn) = meta.track_number {
+            target_tag.set_track(tn);
+        }
+
+        if let Err(e) = tagged_file.save_to_path(&tmp_path, WriteOptions::default()) {
+            let _ = fs::remove_file(&tmp_path);
+            return Err(format!("lofty save error: {e}"));
+        }
+
+        let updated_bytes = fs::read(&tmp_path).map_err(|e| format!("read modified temp: {e}"))?;
+        let _ = fs::remove_file(&tmp_path);
+        AtomicFileWriter::write_atomic(path, &updated_bytes)
+            .map_err(|e| format!("atomic replace error: {e}"))
     }
 }
 
@@ -101,7 +197,6 @@ pub struct EbuR128Scanner {
 
 impl EbuR128Scanner {
     pub fn new(sample_rate: u32) -> Self {
-        // ITU-R BS.1770-4 standard 48kHz coefficients (bilinear-rescaled for other rates)
         let (stage1, stage2) = if sample_rate == 48_000 {
             (
                 Biquad::new(
@@ -120,7 +215,6 @@ impl EbuR128Scanner {
                 ),
             )
         } else {
-            // Bilinear high-shelf (+4 dB @ 1681.97 Hz) + high-pass (38.14 Hz)
             let fs = sample_rate as f64;
             let f0_hs = 1681.974450955533;
             let g_db = 3.999843853973347;
@@ -156,7 +250,6 @@ impl EbuR128Scanner {
         }
     }
 
-    /// Scan mono f32 PCM samples and compute ReplayGain 2.0 (-18 LUFS target).
     pub fn scan_mono(&mut self, samples: &[f32]) -> ReplayGainResult {
         if samples.is_empty() {
             return ReplayGainResult {
@@ -223,7 +316,6 @@ impl EbuR128Scanner {
             -70.0
         };
 
-        // ReplayGain 2.0 target is -18.0 LUFS
         let track_gain_db = (-18.0 - integrated_lufs).clamp(-24.0, 24.0);
         ReplayGainResult {
             track_gain_db,
@@ -248,12 +340,32 @@ pub struct ResolvedLyrics {
     pub is_synced_lrc: bool,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+pub struct LrclibApiPayload {
+    #[serde(rename = "syncedLyrics")]
+    pub synced_lyrics: Option<String>,
+    #[serde(rename = "plainLyrics")]
+    pub plain_lyrics: Option<String>,
+    pub instrumental: Option<bool>,
+}
+
+impl LrclibApiPayload {
+    pub fn parse_json(json_body: &str) -> Option<String> {
+        let p: Self = serde_json::from_str(json_body).ok()?;
+        if p.instrumental == Some(true) {
+            return None;
+        }
+        p.synced_lyrics
+            .filter(|s| !s.trim().is_empty())
+            .or_else(|| p.plain_lyrics.filter(|s| !s.trim().is_empty()))
+    }
+}
+
 pub trait LrclibProvider {
     fn fetch(&mut self, artist: &str, title: &str, duration_secs: u64) -> Option<String>;
 }
 
-/// 3-Tier Lyrics Resolver matching Verdant's `lyrics.js` + `lyrfetch.js`:
-/// Tier 1 (Sidecar .lrc/.txt) -> Tier 2 (Embedded Tag) -> Tier 3 (LRCLIB, max 1 in-flight, 30-day miss cache).
+/// 3-Tier Lyrics Resolver matching Verdant's `lyrics.js` + `lyrfetch.js`.
 pub struct LyricsResolver {
     miss_cache_epoch_secs: HashMap<String, u64>,
 }
@@ -278,7 +390,6 @@ impl LyricsResolver {
         now_epoch_secs: u64,
         provider: &mut P,
     ) -> Option<ResolvedLyrics> {
-        // Tier 1: Sidecar .lrc then .txt
         for ext in ["lrc", "txt"] {
             let sidecar = audio_path.with_extension(ext);
             if let Ok(text) = fs::read_to_string(&sidecar) {
@@ -292,7 +403,6 @@ impl LyricsResolver {
             }
         }
 
-        // Tier 2: Embedded track tag
         if let Some(tag) = embedded_tag_lyrics {
             if !tag.trim().is_empty() {
                 let synced = tag.contains('[') && tag.contains(':');
@@ -304,7 +414,6 @@ impl LyricsResolver {
             }
         }
 
-        // Tier 3: LRCLIB remote only when pane is actively visible and miss-cache expired
         if !pane_visible {
             return None;
         }
@@ -378,6 +487,55 @@ mod tests {
     }
 
     #[test]
+    fn test_lofty_real_wav_tag_write_and_read() {
+        let tmp = std::env::temp_dir().join("rmpd_lofty_test");
+        let _ = fs::create_dir_all(&tmp);
+        let wav_path = tmp.join("sample.wav");
+
+        // Minimal 16-bit PCM WAV file
+        let mut wav = Vec::new();
+        let data_bytes = 960u32;
+        wav.extend_from_slice(b"RIFF");
+        wav.extend_from_slice(&(36 + data_bytes).to_le_bytes());
+        wav.extend_from_slice(b"WAVEfmt ");
+        wav.extend_from_slice(&16u32.to_le_bytes());
+        wav.extend_from_slice(&1u16.to_le_bytes());
+        wav.extend_from_slice(&1u16.to_le_bytes());
+        wav.extend_from_slice(&48_000u32.to_le_bytes());
+        wav.extend_from_slice(&96_000u32.to_le_bytes());
+        wav.extend_from_slice(&2u16.to_le_bytes());
+        wav.extend_from_slice(&16u16.to_le_bytes());
+        wav.extend_from_slice(b"data");
+        wav.extend_from_slice(&data_bytes.to_le_bytes());
+        wav.resize(44 + data_bytes as usize, 0);
+        fs::write(&wav_path, &wav).unwrap();
+
+        let patch = AudioTagMetadata {
+            title: Some("Symphony No. 3 — I. Allegro con brio".into()),
+            artist: Some("Zubin Mehta".into()),
+            album: Some("Munich 2024".into()),
+            track_number: Some(1),
+            duration_ms: 0,
+        };
+        LoftyTagEngine::write_atomic_to_path(&wav_path, &patch).unwrap();
+        let read_back = LoftyTagEngine::read_from_path(&wav_path).unwrap();
+        assert_eq!(read_back.title, patch.title);
+        assert_eq!(read_back.artist, patch.artist);
+        assert_eq!(read_back.album, patch.album);
+        assert_eq!(read_back.track_number, Some(1));
+        let _ = fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn test_lrclib_api_payload_parser() {
+        let json = r#"{"id":1,"syncedLyrics":"[00:12.00] Brahms Chorale","plainLyrics":"Brahms Chorale","instrumental":false}"#;
+        assert_eq!(
+            LrclibApiPayload::parse_json(json).as_deref(),
+            Some("[00:12.00] Brahms Chorale")
+        );
+    }
+
+    #[test]
     fn test_ebu_r128_calibrated_1khz_sine() {
         let sr = 48_000u32;
         let amp = 10.0f32.powf(-18.0 / 20.0) * std::f32::consts::SQRT_2;
@@ -404,13 +562,11 @@ mod tests {
             response: None,
         };
 
-        // Hidden pane must not call LRCLIB
         assert!(resolver
             .resolve(&audio, None, "A", "B", 200, false, 1_000, &mut remote)
             .is_none());
         assert_eq!(remote.calls, 0);
 
-        // First visible miss calls LRCLIB once, then caches miss for 30 days
         assert!(resolver
             .resolve(&audio, None, "A", "B", 200, true, 1_000, &mut remote)
             .is_none());
@@ -419,7 +575,6 @@ mod tests {
             .is_none());
         assert_eq!(remote.calls, 1);
 
-        // Embedded tag beats remote, sidecar beats embedded tag
         let r2 = resolver
             .resolve(&audio, Some("Embedded line"), "A", "B", 200, true, 10_000, &mut remote)
             .unwrap();

@@ -1,4 +1,15 @@
+use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use rmpd_dsp::{AntiPopRamp, PcmTapProducer};
+use std::fs::File;
+use std::io::Cursor;
+use std::path::Path;
+use symphonia::core::audio::SampleBuffer;
+use symphonia::core::codecs::DecoderOptions;
+use symphonia::core::errors::Error as SymphoniaError;
+use symphonia::core::formats::FormatOptions;
+use symphonia::core::io::{MediaSource, MediaSourceStream};
+use symphonia::core::meta::MetadataOptions;
+use symphonia::core::probe::Hint;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct AudioFormat {
@@ -6,6 +17,14 @@ pub struct AudioFormat {
     pub channels: u16,
     pub bits_per_sample: u16,
     pub is_dsd: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HardwareDeviceInfo {
+    pub name: String,
+    pub sample_rate: u32,
+    pub channels: u16,
+    pub host_id: String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -164,6 +183,10 @@ impl AudioRingPipeline {
         Self { producer, consumer }
     }
 
+    pub fn split(capacity_samples: usize) -> (rtrb::Producer<f32>, rtrb::Consumer<f32>) {
+        rtrb::RingBuffer::new(capacity_samples)
+    }
+
     pub fn push_decoded(&mut self, samples: &[f32]) -> usize {
         let mut pushed = 0;
         for &s in samples {
@@ -202,10 +225,190 @@ impl AudioRingPipeline {
     }
 }
 
+/// Real Symphonia hardware-ready decoder supporting WAV, FLAC, MP3, Ogg Vorbis, and MP4/AAC.
+pub struct SymphoniaDecoder;
+
+impl SymphoniaDecoder {
+    pub fn decode_file(path: &Path) -> Result<(AudioFormat, Vec<f32>), String> {
+        let file = File::open(path).map_err(|e| format!("open file error: {e}"))?;
+        let mut hint = Hint::new();
+        if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+            hint.with_extension(ext);
+        }
+        Self::decode_source(Box::new(file), hint)
+    }
+
+    pub fn decode_bytes(bytes: Vec<u8>, ext_hint: Option<&str>) -> Result<(AudioFormat, Vec<f32>), String> {
+        let mut hint = Hint::new();
+        if let Some(ext) = ext_hint {
+            hint.with_extension(ext);
+        }
+        Self::decode_source(Box::new(Cursor::new(bytes)), hint)
+    }
+
+    fn decode_source(
+        source: Box<dyn MediaSource>,
+        hint: Hint,
+    ) -> Result<(AudioFormat, Vec<f32>), String> {
+        let mss = MediaSourceStream::new(source, Default::default());
+        let probed = symphonia::default::get_probe()
+            .format(
+                &hint,
+                mss,
+                &FormatOptions::default(),
+                &MetadataOptions::default(),
+            )
+            .map_err(|e| format!("symphonia probe error: {e}"))?;
+
+        let mut format = probed.format;
+        let track = format
+            .default_track()
+            .ok_or_else(|| "no default audio track found".to_string())?;
+        let track_id = track.id;
+        let codec_params = track.codec_params.clone();
+
+        let sample_rate = codec_params.sample_rate.unwrap_or(44_100);
+        let channels = codec_params.channels.map(|c| c.count() as u16).unwrap_or(2);
+        let bits_per_sample = codec_params.bits_per_sample.unwrap_or(16) as u16;
+
+        let mut decoder = symphonia::default::get_codecs()
+            .make(&codec_params, &DecoderOptions::default())
+            .map_err(|e| format!("symphonia codec init error: {e}"))?;
+
+        let mut pcm_samples = Vec::new();
+        let mut sample_buf: Option<SampleBuffer<f32>> = None;
+
+        loop {
+            let packet = match format.next_packet() {
+                Ok(p) => p,
+                Err(SymphoniaError::IoError(ref err))
+                    if err.kind() == std::io::ErrorKind::UnexpectedEof =>
+                {
+                    break;
+                }
+                Err(SymphoniaError::ResetRequired) => break,
+                Err(_) => break,
+            };
+
+            if packet.track_id() != track_id {
+                continue;
+            }
+
+            if let Ok(audio_buf) = decoder.decode(&packet) {
+                if sample_buf.is_none() {
+                    let spec = *audio_buf.spec();
+                    let duration = audio_buf.capacity() as u64;
+                    sample_buf = Some(SampleBuffer::<f32>::new(duration, spec));
+                }
+                if let Some(buf) = &mut sample_buf {
+                    buf.copy_interleaved_ref(audio_buf);
+                    pcm_samples.extend_from_slice(buf.samples());
+                }
+            }
+        }
+
+        let audio_fmt = AudioFormat {
+            sample_rate,
+            channels,
+            bits_per_sample,
+            is_dsd: false,
+        };
+        Ok((audio_fmt, pcm_samples))
+    }
+}
+
+/// Generate a valid 16-bit PCM WAV byte buffer for deterministic Symphonia + CPAL hardware tests.
+pub fn build_pcm16_wav_bytes(sample_rate: u32, channels: u16, samples_i16: &[i16]) -> Vec<u8> {
+    let data_bytes = (samples_i16.len() * 2) as u32;
+    let byte_rate = sample_rate * (channels as u32) * 2;
+    let block_align = channels * 2;
+    let mut out = Vec::with_capacity(44 + data_bytes as usize);
+    out.extend_from_slice(b"RIFF");
+    out.extend_from_slice(&(36 + data_bytes).to_le_bytes());
+    out.extend_from_slice(b"WAVEfmt ");
+    out.extend_from_slice(&16u32.to_le_bytes());
+    out.extend_from_slice(&1u16.to_le_bytes()); // PCM
+    out.extend_from_slice(&channels.to_le_bytes());
+    out.extend_from_slice(&sample_rate.to_le_bytes());
+    out.extend_from_slice(&byte_rate.to_le_bytes());
+    out.extend_from_slice(&block_align.to_le_bytes());
+    out.extend_from_slice(&16u16.to_le_bytes());
+    out.extend_from_slice(b"data");
+    out.extend_from_slice(&data_bytes.to_le_bytes());
+    for &s in samples_i16 {
+        out.extend_from_slice(&s.to_le_bytes());
+    }
+    out
+}
+
+/// Real CPAL hardware output adapter (WASAPI on Windows, ALSA/PipeWire on Linux, CoreAudio on macOS).
+pub struct CpalHardwareOutput;
+
+impl CpalHardwareOutput {
+    pub fn probe_default_device() -> Option<HardwareDeviceInfo> {
+        let host = cpal::default_host();
+        let host_id = format!("{:?}", host.id());
+        let device = host.default_output_device()?;
+        let name = device.name().unwrap_or_else(|_| "Default Output".to_string());
+        let cfg = device.default_output_config().ok()?;
+        Some(HardwareDeviceInfo {
+            name,
+            sample_rate: cfg.sample_rate().0,
+            channels: cfg.channels(),
+            host_id,
+        })
+    }
+
+    /// Start a real hardware output stream draining from a lock-free `rtrb::Consumer<f32>` and feeding `PcmTapProducer`.
+    pub fn start_live_stream(
+        mut consumer: rtrb::Consumer<f32>,
+        mut fsm: SampleRateSwitchFsm,
+        mut tap: Option<PcmTapProducer>,
+    ) -> Result<cpal::Stream, String> {
+        let host = cpal::default_host();
+        let device = host
+            .default_output_device()
+            .ok_or_else(|| "no default CPAL output device".to_string())?;
+        let config: cpal::StreamConfig = device
+            .default_output_config()
+            .map_err(|e| format!("default_output_config error: {e}"))?
+            .into();
+
+        let stream = device
+            .build_output_stream(
+                &config,
+                move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
+                    // Real-Time callback: 0 heap allocations, 0 mutex locks
+                    for slot in data.iter_mut() {
+                        if let Ok(sample) = consumer.pop() {
+                            let gain = fsm.step_frame();
+                            let processed = sample * gain;
+                            *slot = processed;
+                            if let Some(t) = tap.as_mut() {
+                                t.try_push_sample(processed);
+                            }
+                        } else {
+                            *slot = 0.0;
+                        }
+                    }
+                },
+                move |err| {
+                    eprintln!("CPAL stream error: {err}");
+                },
+                None,
+            )
+            .map_err(|e| format!("build_output_stream error: {e}"))?;
+
+        stream.play().map_err(|e| format!("stream.play error: {e}"))?;
+        Ok(stream)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rmpd_dsp::{create_pcm_tap, FFT_WINDOW_SIZE};
+    use rmpd_dsp::{create_pcm_tap, HertzFftAnalyzer, FFT_WINDOW_SIZE};
+    use std::f32::consts::PI;
 
     #[test]
     fn test_anti_pop_sample_rate_fsm_transition() {
@@ -260,5 +463,43 @@ mod tests {
 
         let mut fft_in = [0.0f32; FFT_WINDOW_SIZE];
         assert!(tap_rx.pop_window(&mut fft_in));
+    }
+
+    #[test]
+    fn test_symphonia_real_wav_decode_into_fft_tap() {
+        let sr = 48_000u32;
+        let pcm16: Vec<i16> = (0..FFT_WINDOW_SIZE)
+            .map(|i| {
+                let s = (2.0 * PI * 1000.0 * (i as f32) / (sr as f32)).sin();
+                (s * 24_000.0) as i16
+            })
+            .collect();
+        let wav_bytes = build_pcm16_wav_bytes(sr, 1, &pcm16);
+        let (fmt, decoded) = SymphoniaDecoder::decode_bytes(wav_bytes, Some("wav")).unwrap();
+        assert_eq!(fmt.sample_rate, sr);
+        assert_eq!(fmt.channels, 1);
+        assert_eq!(decoded.len(), FFT_WINDOW_SIZE);
+
+        let mut pipe = AudioRingPipeline::new(FFT_WINDOW_SIZE * 2);
+        pipe.push_decoded(&decoded);
+        let mut fsm = SampleRateSwitchFsm::new(sr);
+        let (mut tap_tx, mut tap_rx) = create_pcm_tap(FFT_WINDOW_SIZE * 2);
+        let mut out = vec![0.0f32; FFT_WINDOW_SIZE];
+        pipe.drain_to_output(&mut out, &mut fsm, Some(&mut tap_tx));
+
+        let mut win = [0.0f32; FFT_WINDOW_SIZE];
+        assert!(tap_rx.pop_window(&mut win));
+        let mut analyzer = HertzFftAnalyzer::new(sr, -72.0, 0.0);
+        let frame = analyzer.analyze_window(&win);
+        let (peak_band, _) = frame
+            .bands_db
+            .iter()
+            .enumerate()
+            .max_by(|a, b| a.1.partial_cmp(b.1).unwrap())
+            .unwrap();
+        assert!((analyzer.band_center_hz(peak_band) - 1000.0).abs() < 120.0);
+
+        // Also exercise CPAL device enumeration (gracefully succeeds whether DAC is plugged in or headless)
+        let _ = CpalHardwareOutput::probe_default_device();
     }
 }

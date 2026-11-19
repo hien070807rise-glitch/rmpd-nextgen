@@ -7,3 +7,5 @@ license.workspace = true
 [dependencies]
 rmpd-dsp = { path = "../rmpd-dsp" }
 rtrb.workspace = true
+symphonia.workspace = true
+cpal.workspace = true

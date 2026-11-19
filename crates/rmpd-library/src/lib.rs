@@ -1,3 +1,4 @@
+use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use regex::Regex;
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
@@ -380,6 +381,85 @@ impl LibraryDb {
     pub fn track_count(&self) -> rusqlite::Result<usize> {
         let count: i64 = self.conn.query_row("SELECT COUNT(*) FROM tracks", [], |r| r.get(0))?;
         Ok(count as usize)
+    }
+
+    /// Create a live filesystem watcher (`notify`) monitoring directory changes.
+    pub fn watch_directory(dir: &Path) -> notify::Result<(RecommendedWatcher, std::sync::mpsc::Receiver<notify::Result<notify::Event>>)> {
+        let (tx, rx) = std::sync::mpsc::channel();
+        let mut watcher = notify::recommended_watcher(tx)?;
+        watcher.watch(dir, RecursiveMode::Recursive)?;
+        Ok((watcher, rx))
+    }
+
+    /// Recursively scan an audio directory on disk using `lofty` metadata probing and index into SQLite FTS5.
+    pub fn scan_directory(&mut self, dir: &Path) -> rusqlite::Result<usize> {
+        use lofty::prelude::*;
+        use lofty::probe::Probe;
+
+        fn collect_audio_files(dir: &Path, out: &mut Vec<PathBuf>) {
+            let Ok(entries) = std::fs::read_dir(dir) else {
+                return;
+            };
+            for entry in entries.flatten() {
+                let p = entry.path();
+                if p.is_dir() {
+                    collect_audio_files(&p, out);
+                } else if let Some(ext) = p.extension().and_then(|e| e.to_str()) {
+                    if matches!(
+                        ext.to_ascii_lowercase().as_str(),
+                        "flac" | "mp3" | "opus" | "ogg" | "wav" | "m4a" | "dsf"
+                    ) {
+                        out.push(p);
+                    }
+                }
+            }
+        }
+
+        let mut files = Vec::new();
+        collect_audio_files(dir, &mut files);
+        let mut indexed = 0usize;
+        for f in files {
+            let path_str = f.to_string_lossy().to_string();
+            let fallback_title = f
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or("Unknown Title")
+                .to_string();
+
+            let (title, artist, album, dur_ms) = match Probe::open(&f).and_then(|p| p.read()) {
+                Ok(tf) => {
+                    let d = tf.properties().duration().as_millis() as u64;
+                    if let Some(tag) = tf.primary_tag().or_else(|| tf.first_tag()) {
+                        (
+                            tag.title().map(|s| s.into_owned()).unwrap_or(fallback_title),
+                            tag.artist()
+                                .map(|s| s.into_owned())
+                                .unwrap_or_else(|| "Unknown Artist".into()),
+                            tag.album()
+                                .map(|s| s.into_owned())
+                                .unwrap_or_else(|| "Unknown Album".into()),
+                            d,
+                        )
+                    } else {
+                        (
+                            fallback_title,
+                            "Unknown Artist".into(),
+                            "Unknown Album".into(),
+                            d,
+                        )
+                    }
+                }
+                Err(_) => (
+                    fallback_title,
+                    "Unknown Artist".into(),
+                    "Unknown Album".into(),
+                    0,
+                ),
+            };
+            self.upsert_track(&path_str, &title, &artist, &album, dur_ms)?;
+            indexed += 1;
+        }
+        Ok(indexed)
     }
 
     pub fn list_works(&self) -> rusqlite::Result<Vec<(String, usize)>> {

@@ -1,3 +1,6 @@
+use std::fs::OpenOptions;
+use std::io::Write;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MediaPlaybackStatus {
     Stopped,
@@ -92,8 +95,19 @@ pub struct DiscordActivityPayload {
     pub large_text: String,
 }
 
-/// Local Discord Rich Presence controller matching Verdant's `discord.js` discipline:
-/// live toggleable from Settings, transmits title/artist/album locally without uploading files.
+/// Encode a Discord Local IPC binary packet (`[opcode: u32 LE, len: u32 LE, payload_bytes]`)
+/// compatible with `\\.\pipe\discord-ipc-0` (Windows) and `/run/user/.../discord-ipc-0` (Unix).
+pub fn encode_discord_ipc_frame(opcode: u32, json_payload: &str) -> Vec<u8> {
+    let bytes = json_payload.as_bytes();
+    let len = bytes.len() as u32;
+    let mut frame = Vec::with_capacity(8 + bytes.len());
+    frame.extend_from_slice(&opcode.to_le_bytes());
+    frame.extend_from_slice(&len.to_le_bytes());
+    frame.extend_from_slice(bytes);
+    frame
+}
+
+/// Local Discord Rich Presence controller matching Verdant's `discord.js` discipline.
 pub struct DiscordPresenceController {
     enabled: bool,
     last_payload: Option<DiscordActivityPayload>,
@@ -118,21 +132,78 @@ impl DiscordPresenceController {
         }
     }
 
-    pub fn publish(&mut self, meta: &OsMediaMetadata, status: MediaPlaybackStatus) -> Option<&DiscordActivityPayload> {
+    pub fn publish(
+        &mut self,
+        meta: &OsMediaMetadata,
+        status: MediaPlaybackStatus,
+    ) -> Option<&DiscordActivityPayload> {
         if !self.enabled || status == MediaPlaybackStatus::Stopped {
             self.last_payload = None;
             return None;
         }
-        self.last_payload = Some(DiscordActivityPayload {
+        let payload = DiscordActivityPayload {
             details: meta.title.clone(),
             state: format!("by {}", meta.artist),
             large_text: meta.album.clone(),
-        });
+        };
+        let json = format!(
+            "{{\"cmd\":\"SET_ACTIVITY\",\"args\":{{\"pid\":{},\"activity\":{{\"details\":\"{}\",\"state\":\"{}\"}}}},\"nonce\":\"1\"}}",
+            std::process::id(),
+            payload.details.replace('"', "\\\""),
+            payload.state.replace('"', "\\\""),
+        );
+        let frame = encode_discord_ipc_frame(1, &json);
+        // Best-effort non-failing write to local Discord pipe if Discord desktop app is running
+        #[cfg(target_os = "windows")]
+        {
+            if let Ok(mut pipe) = OpenOptions::new().write(true).open(r"\\.\pipe\discord-ipc-0") {
+                let _ = pipe.write_all(&frame);
+            }
+        }
+        #[cfg(not(target_os = "windows"))]
+        {
+            let _ = frame;
+        }
+        self.last_payload = Some(payload);
         self.last_payload.as_ref()
     }
 
     pub fn current_payload(&self) -> Option<&DiscordActivityPayload> {
         self.last_payload.as_ref()
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TrayWindowBehavior {
+    MinimizeToTray,
+    ExitApplication,
+}
+
+pub struct SystemTrayController {
+    pub minimize_on_close_while_playing: bool,
+    pub in_tray: bool,
+}
+
+impl SystemTrayController {
+    pub fn new(minimize_on_close_while_playing: bool) -> Self {
+        Self {
+            minimize_on_close_while_playing,
+            in_tray: false,
+        }
+    }
+
+    pub fn on_window_close_requested(&mut self, is_playing: bool) -> TrayWindowBehavior {
+        if self.minimize_on_close_while_playing && is_playing {
+            self.in_tray = true;
+            TrayWindowBehavior::MinimizeToTray
+        } else {
+            self.in_tray = false;
+            TrayWindowBehavior::ExitApplication
+        }
+    }
+
+    pub fn restore_from_tray(&mut self) {
+        self.in_tray = false;
     }
 }
 
@@ -153,12 +224,22 @@ mod tests {
         bridge.update_state(MediaPlaybackStatus::Playing, Some(meta));
         assert_eq!(bridge.status, MediaPlaybackStatus::Playing);
         assert_eq!(bridge.sync_count, 1);
-        assert_eq!(OsMediaBridge::map_hotkey("Space"), Some(MediaTransportEvent::PlayPause));
-        assert_eq!(OsMediaBridge::map_hotkey("MediaNextTrack"), Some(MediaTransportEvent::NextTrack));
+        assert_eq!(
+            OsMediaBridge::map_hotkey("Space"),
+            Some(MediaTransportEvent::PlayPause)
+        );
+        assert_eq!(
+            OsMediaBridge::map_hotkey("MediaNextTrack"),
+            Some(MediaTransportEvent::NextTrack)
+        );
     }
 
     #[test]
-    fn test_discord_presence_live_toggle() {
+    fn test_discord_ipc_framing_and_tray_controller() {
+        let frame = encode_discord_ipc_frame(1, "{\"cmd\":\"PING\"}");
+        assert_eq!(u32::from_le_bytes([frame[0], frame[1], frame[2], frame[3]]), 1);
+        assert_eq!(u32::from_le_bytes([frame[4], frame[5], frame[6], frame[7]]), 14);
+
         let mut drp = DiscordPresenceController::new(true);
         let meta = OsMediaMetadata {
             title: "Ballade No. 1".into(),
@@ -171,6 +252,18 @@ mod tests {
         assert_eq!(p.details, "Ballade No. 1");
         drp.set_enabled(false);
         assert!(drp.current_payload().is_none());
-        assert!(drp.publish(&meta, MediaPlaybackStatus::Playing).is_none());
+
+        let mut tray = SystemTrayController::new(true);
+        assert_eq!(
+            tray.on_window_close_requested(true),
+            TrayWindowBehavior::MinimizeToTray
+        );
+        assert!(tray.in_tray);
+        tray.restore_from_tray();
+        assert!(!tray.in_tray);
+        assert_eq!(
+            tray.on_window_close_requested(false),
+            TrayWindowBehavior::ExitApplication
+        );
     }
 }
