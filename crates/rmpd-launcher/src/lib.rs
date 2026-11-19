@@ -55,18 +55,34 @@ impl SingleInstanceLock {
                 })
             }
             Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {
-                // Recover stale lock if pid is no longer valid/test clean
+                // Recover stale lock if pid is 0 or process is no longer alive
+                let mut is_stale = false;
                 if let Ok(content) = fs::read_to_string(lock_path) {
                     if let Ok(pid) = content.trim().parse::<u32>() {
                         if pid == 0 {
-                            let _ = fs::remove_file(lock_path);
-                            let mut f = OpenOptions::new().write(true).create_new(true).open(lock_path)?;
-                            writeln!(f, "{}", std::process::id())?;
-                            return Ok(Self {
-                                path: lock_path.to_path_buf(),
-                            });
+                            is_stale = true;
+                        } else if cfg!(target_os = "windows") {
+                            if let Ok(out) = std::process::Command::new("tasklist")
+                                .args(["/FI", &format!("PID eq {pid}"), "/NH"])
+                                .output()
+                            {
+                                let txt = String::from_utf8_lossy(&out.stdout);
+                                if !txt.contains(&pid.to_string()) {
+                                    is_stale = true;
+                                }
+                            }
                         }
+                    } else {
+                        is_stale = true;
                     }
+                }
+                if is_stale {
+                    let _ = fs::remove_file(lock_path);
+                    let mut f = OpenOptions::new().write(true).create_new(true).open(lock_path)?;
+                    writeln!(f, "{}", std::process::id())?;
+                    return Ok(Self {
+                        path: lock_path.to_path_buf(),
+                    });
                 }
                 Err(std::io::Error::new(
                     std::io::ErrorKind::AlreadyExists,
