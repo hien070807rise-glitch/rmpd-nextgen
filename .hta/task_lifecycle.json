@@ -1,11 +1,62 @@
 {
   "project_id": "RMPD-NEXTGEN-FULL-PRODUCT-RELEASE",
   "route": "DEEP_DAG_ROUTE",
-  "workflow_status": "PLANNED",
+  "workflow_status": "RUNNING",
   "total_planned_steps": 12,
-  "last_healthy_step": null,
-  "checkpoint_order": [],
-  "checkpoints": {},
-  "steps": {},
+  "last_healthy_step": "T-02.01",
+  "checkpoint_order": [
+    "T-01.01",
+    "T-01.02",
+    "T-01.03",
+    "T-02.01"
+  ],
+  "checkpoints": {
+    "T-01.01": {
+      "step_id": "T-01.01",
+      "status": "CHECKPOINTED",
+      "artifact_ref": "scratch/prep_manifests/prep_manifest.json",
+      "evidence_summary": "PREP complete: rmpd 0.19.0 crate map (MIT/Apache-2.0) and Verdant Engawa UI/Data spec extracted."
+    },
+    "T-01.02": {
+      "step_id": "T-01.02",
+      "status": "CHECKPOINTED",
+      "artifact_ref": "scratch/architecture_spec/architecture_blueprint.md",
+      "evidence_summary": "Architecture spec locked: Dual-Channel IPC (MPD + 72-band FFT Tap), Anti-Pop Sample-Rate FSM, True Shuffle, and Portable/Installer Launcher."
+    },
+    "T-01.03": {
+      "step_id": "T-01.03",
+      "status": "CHECKPOINTED",
+      "artifact_ref": "contracts/interfaces/audio_engine.rs",
+      "evidence_summary": "Contract-First locked: 6 interface contracts (audio_engine.rs, platform_contracts.rs, dsp_plugin_abi.h) ready for Wave 4."
+    },
+    "T-02.01": {
+      "step_id": "T-02.01",
+      "status": "CHECKPOINTED",
+      "artifact_ref": "crates/rmpd-player/src/lib.rs",
+      "evidence_summary": "Wave 4 Argon T-02.01 complete: rmpd-dsp and rmpd-player passed 6/6 unit tests on rustc 1.100.0."
+    }
+  },
+  "steps": {
+    "T-01.01": {
+      "retry_count": 0,
+      "status": "CHECKPOINTED",
+      "artifact_ref": "scratch/prep_manifests/prep_manifest.json"
+    },
+    "T-01.02": {
+      "retry_count": 0,
+      "status": "CHECKPOINTED",
+      "artifact_ref": "scratch/architecture_spec/architecture_blueprint.md"
+    },
+    "T-01.03": {
+      "retry_count": 0,
+      "status": "CHECKPOINTED",
+      "artifact_ref": "contracts/interfaces/audio_engine.rs"
+    },
+    "T-02.01": {
+      "retry_count": 0,
+      "status": "CHECKPOINTED",
+      "artifact_ref": "crates/rmpd-player/src/lib.rs"
+    }
+  },
   "rejected_heuristics": []
 }
