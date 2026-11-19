@@ -142,6 +142,81 @@ pub fn dedupe_tracks(tracks: &[TrackRecord]) -> Vec<TrackRecord> {
     out
 }
 
+/// Natural sort comparator: case-insensitive lexicographical comparison,
+/// with consecutive ASCII digit runs compared numerically (`u64` with
+/// arbitrary-length fallback for overflow safety).
+pub fn natural_cmp(a: &str, b: &str) -> std::cmp::Ordering {
+    use std::cmp::Ordering;
+
+    let ab = a.as_bytes();
+    let bb = b.as_bytes();
+    let mut ia = 0usize;
+    let mut ib = 0usize;
+    let mut digit_len_tiebreak = Ordering::Equal;
+
+    while ia < ab.len() && ib < bb.len() {
+        let a_is_digit = ab[ia].is_ascii_digit();
+        let b_is_digit = bb[ib].is_ascii_digit();
+
+        if a_is_digit && b_is_digit {
+            let start_a = ia;
+            while ia < ab.len() && ab[ia].is_ascii_digit() {
+                ia += 1;
+            }
+            let start_b = ib;
+            while ib < bb.len() && bb[ib].is_ascii_digit() {
+                ib += 1;
+            }
+            let run_a = &a[start_a..ia];
+            let run_b = &b[start_b..ib];
+
+            let num_ord = match (run_a.parse::<u64>(), run_b.parse::<u64>()) {
+                (Ok(na), Ok(nb)) => na.cmp(&nb),
+                _ => {
+                    let ta = run_a.trim_start_matches('0');
+                    let tb = run_b.trim_start_matches('0');
+                    ta.len().cmp(&tb.len()).then_with(|| ta.cmp(tb))
+                }
+            };
+            if num_ord != Ordering::Equal {
+                return num_ord;
+            }
+            if digit_len_tiebreak == Ordering::Equal && run_a.len() != run_b.len() {
+                digit_len_tiebreak = run_a.len().cmp(&run_b.len());
+            }
+            continue;
+        }
+
+        let ca = a[ia..].chars().next().unwrap();
+        let cb = b[ib..].chars().next().unwrap();
+        ia += ca.len_utf8();
+        ib += cb.len_utf8();
+
+        let char_ord = ca.to_lowercase().cmp(cb.to_lowercase());
+        if char_ord != Ordering::Equal {
+            return char_ord;
+        }
+    }
+
+    (ia < ab.len())
+        .cmp(&(ib < bb.len()))
+        .then(digit_len_tiebreak)
+}
+
+/// Multi-token case-insensitive AND matching across multiple text fields.
+/// Every whitespace-separated token in `query` must appear as a substring in at least one field.
+pub fn matches_multi_token(fields: &[&str], query: &str) -> bool {
+    let q = query.trim();
+    if q.is_empty() {
+        return true;
+    }
+    let lowered_fields: Vec<String> = fields.iter().map(|f| f.to_lowercase()).collect();
+    q.split_whitespace().all(|tok| {
+        let t = tok.to_lowercase();
+        lowered_fields.iter().any(|f| f.contains(&t))
+    })
+}
+
 /// Disk-backed cover cache with 2x2 RGBA mosaic builder for playlist shelves.
 pub struct DiskArtCache {
     root_dir: PathBuf,
@@ -601,5 +676,53 @@ mod tests {
         dup.path = "c:/music/a.flac".into();
         let deduped = dedupe_tracks(&[rec, dup]);
         assert_eq!(deduped.len(), 1);
+    }
+
+    #[test]
+    fn test_natural_sort_classical_works() {
+        use std::cmp::Ordering;
+
+        assert_eq!(natural_cmp("Symphony No. 2", "Symphony No. 10"), Ordering::Less);
+        assert_eq!(natural_cmp("Op. 9", "Op. 90"), Ordering::Less);
+        assert_eq!(natural_cmp("CD2", "CD10"), Ordering::Less);
+        assert_eq!(natural_cmp("2.", "10."), Ordering::Less);
+        assert_eq!(natural_cmp("brahms", "BRAHMS"), Ordering::Equal);
+        assert_eq!(natural_cmp("02", "2"), Ordering::Greater);
+        assert_eq!(natural_cmp("Symphony No. 10", "Symphony No. 2"), Ordering::Greater);
+
+        let mut items = vec![
+            "Symphony No. 10 — IV. Finale",
+            "Symphony No. 2 — I. Allegro",
+            "op. 90",
+            "Op. 9",
+            "CD10",
+            "CD2",
+            "10. Nocturne",
+            "2. Prelude",
+        ];
+        items.sort_by(|a, b| natural_cmp(a, b));
+        assert_eq!(
+            items,
+            vec![
+                "2. Prelude",
+                "10. Nocturne",
+                "CD2",
+                "CD10",
+                "Op. 9",
+                "op. 90",
+                "Symphony No. 2 — I. Allegro",
+                "Symphony No. 10 — IV. Finale",
+            ]
+        );
+
+        assert!(matches_multi_token(
+            &["I. Allegro con brio", "Zubin Mehta", "Brahms Symphony No. 3"],
+            "mehta allegro"
+        ));
+        assert!(!matches_multi_token(
+            &["I. Allegro con brio", "Zubin Mehta"],
+            "mehta adagio"
+        ));
+        assert!(matches_multi_token(&["Anything"], "   "));
     }
 }

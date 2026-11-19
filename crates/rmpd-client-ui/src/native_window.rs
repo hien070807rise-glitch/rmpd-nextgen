@@ -3,7 +3,10 @@ use crate::{
 };
 use eframe::egui::{self, Color32, Pos2, Rect, RichText, Rounding, Sense, Stroke, TextureHandle, Vec2};
 use rmpd_dsp::{create_pcm_tap, HertzFftAnalyzer, FFT_WINDOW_SIZE, VIZ_BAND_COUNT};
-use rmpd_library::{load_curated_collections, parse_work_and_movement, CuratedCollection};
+use rmpd_library::{
+    load_curated_collections, matches_multi_token, natural_cmp, parse_work_and_movement,
+    CuratedCollection,
+};
 use rmpd_player::{CpalHardwareOutput, SampleRateSwitchFsm, SymphoniaDecoder};
 use std::collections::HashMap;
 use std::net::SocketAddr;
@@ -66,6 +69,112 @@ enum NavFilter {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SidebarSortMode {
+    Default,
+    NameAZ,
+    TrackCount,
+}
+
+impl SidebarSortMode {
+    fn next(self) -> Self {
+        match self {
+            Self::Default => Self::NameAZ,
+            Self::NameAZ => Self::TrackCount,
+            Self::TrackCount => Self::Default,
+        }
+    }
+
+    fn short_label(self) -> &'static str {
+        match self {
+            Self::Default => "Default",
+            Self::NameAZ => "A-Z",
+            Self::TrackCount => "#",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum PlaylistSortField {
+    TrackOrder,
+    Title,
+    Artist,
+    Work,
+    Duration,
+}
+
+impl PlaylistSortField {
+    fn next(self) -> Self {
+        match self {
+            Self::TrackOrder => Self::Title,
+            Self::Title => Self::Artist,
+            Self::Artist => Self::Work,
+            Self::Work => Self::Duration,
+            Self::Duration => Self::TrackOrder,
+        }
+    }
+
+    fn label(self) -> &'static str {
+        match self {
+            Self::TrackOrder => "Track #",
+            Self::Title => "Title",
+            Self::Artist => "Artist",
+            Self::Work => "Work",
+            Self::Duration => "Duration",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SortDir {
+    Asc,
+    Desc,
+}
+
+impl SortDir {
+    fn toggle(self) -> Self {
+        match self {
+            Self::Asc => Self::Desc,
+            Self::Desc => Self::Asc,
+        }
+    }
+
+    fn label(self) -> &'static str {
+        match self {
+            Self::Asc => "↑ ASC",
+            Self::Desc => "↓ DESC",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SearchSortField {
+    Default,
+    Title,
+    Artist,
+    Duration,
+}
+
+impl SearchSortField {
+    fn next(self) -> Self {
+        match self {
+            Self::Default => Self::Title,
+            Self::Title => Self::Artist,
+            Self::Artist => Self::Duration,
+            Self::Duration => Self::Default,
+        }
+    }
+
+    fn label(self) -> &'static str {
+        match self {
+            Self::Default => "Relevance",
+            Self::Title => "Title",
+            Self::Artist => "Artist",
+            Self::Duration => "Duration",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum RightTab {
     Queue,
     NotesLyrics,
@@ -108,11 +217,19 @@ pub struct VerdantEngawaApp {
     textures_loaded: bool,
     covers_dir: PathBuf,
     nav_filter: NavFilter,
+    sidebar_sort: SidebarSortMode,
     compact_nav: bool,
     classical_open: bool,
     modern_open: bool,
     right_tab: RightTab,
     search_query: String,
+    search_cat_filter: NavFilter,
+    search_sort_field: SearchSortField,
+    search_sort_dir: SortDir,
+    playlist_sort_field: PlaylistSortField,
+    playlist_sort_dir: SortDir,
+    playlist_filter: String,
+    last_playlist_idx: Option<usize>,
     shuffle_on: bool,
     repeat_mode: u8,
     favorite: bool,
@@ -370,11 +487,19 @@ impl VerdantEngawaApp {
             textures_loaded: false,
             covers_dir,
             nav_filter: NavFilter::All,
+            sidebar_sort: SidebarSortMode::Default,
             compact_nav: false,
             classical_open: true,
             modern_open: true,
             right_tab: RightTab::Queue,
             search_query: String::new(),
+            search_cat_filter: NavFilter::All,
+            search_sort_field: SearchSortField::Default,
+            search_sort_dir: SortDir::Asc,
+            playlist_sort_field: PlaylistSortField::TrackOrder,
+            playlist_sort_dir: SortDir::Asc,
+            playlist_filter: String::new(),
+            last_playlist_idx: None,
             shuffle_on: false,
             repeat_mode: 0,
             favorite: false,
@@ -577,23 +702,211 @@ impl VerdantEngawaApp {
         });
     }
 
-    fn play_collection(&mut self, col_idx: usize, shuffle: bool) {
-        let Some(col) = self.collections.get(col_idx) else {
+    fn prepare_queue_from_tracks(mut tracks: Vec<TrackEntry>, shuffle: bool) -> Vec<TrackEntry> {
+        if shuffle && tracks.len() > 1 {
+            // Deterministic rotation shuffle
+            tracks.rotate_left(1);
+        }
+        tracks
+    }
+
+    fn play_track_list(&mut self, tracks: Vec<TrackEntry>, shuffle: bool) {
+        let q = Self::prepare_queue_from_tracks(tracks, shuffle);
+        let Some(first) = q.first().cloned() else {
             return;
         };
-        if col.tracks.is_empty() {
-            return;
-        }
-        let mut q = col.tracks.clone();
-        if shuffle && q.len() > 1 {
-            // Deterministic rotation shuffle
-            q.rotate_left(1);
-        }
-        let first = q[0].clone();
         self.queue = q;
         self.queue_pos = 0;
         self.shuffle_on = shuffle;
         self.play_track(first);
+    }
+
+    fn play_collection(&mut self, col_idx: usize, shuffle: bool) {
+        let Some(col) = self.collections.get(col_idx) else {
+            return;
+        };
+        let tracks = col.tracks.clone();
+        self.play_track_list(tracks, shuffle);
+    }
+
+    fn sort_collection_indices_by(
+        collections: &[CollectionData],
+        indices: &mut [usize],
+        mode: SidebarSortMode,
+    ) {
+        match mode {
+            SidebarSortMode::Default => {
+                indices.sort_unstable();
+            }
+            SidebarSortMode::NameAZ => {
+                indices.sort_by(|&a, &b| {
+                    natural_cmp(&collections[a].meta.name, &collections[b].meta.name)
+                        .then_with(|| a.cmp(&b))
+                });
+            }
+            SidebarSortMode::TrackCount => {
+                indices.sort_by(|&a, &b| {
+                    collections[b]
+                        .tracks
+                        .len()
+                        .cmp(&collections[a].tracks.len())
+                        .then_with(|| {
+                            natural_cmp(&collections[a].meta.name, &collections[b].meta.name)
+                        })
+                        .then_with(|| a.cmp(&b))
+                });
+            }
+        }
+    }
+
+    fn filter_and_sort_playlist_tracks(
+        tracks: &[TrackEntry],
+        filter: &str,
+        sort_field: PlaylistSortField,
+        sort_dir: SortDir,
+    ) -> Vec<(usize, TrackEntry)> {
+        let mut out: Vec<(usize, TrackEntry)> = tracks
+            .iter()
+            .enumerate()
+            .filter(|(_, tr)| {
+                matches_multi_token(
+                    &[
+                        &tr.title,
+                        &tr.artist,
+                        &tr.work_title,
+                        &tr.movement_title,
+                        &tr.album,
+                    ],
+                    filter,
+                )
+            })
+            .map(|(i, tr)| (i, tr.clone()))
+            .collect();
+
+        out.sort_by(|(idx_a, a), (idx_b, b)| {
+            let ord = match sort_field {
+                PlaylistSortField::TrackOrder => idx_a.cmp(idx_b),
+                PlaylistSortField::Title => {
+                    natural_cmp(&a.title, &b.title).then_with(|| idx_a.cmp(idx_b))
+                }
+                PlaylistSortField::Artist => natural_cmp(&a.artist, &b.artist)
+                    .then_with(|| natural_cmp(&a.title, &b.title))
+                    .then_with(|| idx_a.cmp(idx_b)),
+                PlaylistSortField::Work => {
+                    let wa = if a.work_title.is_empty() {
+                        &a.title
+                    } else {
+                        &a.work_title
+                    };
+                    let wb = if b.work_title.is_empty() {
+                        &b.title
+                    } else {
+                        &b.work_title
+                    };
+                    natural_cmp(wa, wb)
+                        .then_with(|| natural_cmp(&a.movement_title, &b.movement_title))
+                        .then_with(|| idx_a.cmp(idx_b))
+                }
+                PlaylistSortField::Duration => {
+                    a.duration_secs.cmp(&b.duration_secs).then_with(|| idx_a.cmp(idx_b))
+                }
+            };
+            match sort_dir {
+                SortDir::Asc => ord,
+                SortDir::Desc => ord.reverse(),
+            }
+        });
+
+        out
+    }
+
+    fn filter_and_sort_search_tracks(
+        all_tracks: &[TrackEntry],
+        collections: &[CollectionData],
+        query: &str,
+        artist_filter: Option<&str>,
+        cat_filter: NavFilter,
+        sort_field: SearchSortField,
+        sort_dir: SortDir,
+    ) -> (Vec<TrackEntry>, usize) {
+        let q_lower = query.trim().to_lowercase();
+        let artist_lower = artist_filter.map(|a| a.trim().to_lowercase());
+
+        let mut matched: Vec<(usize, i32, TrackEntry)> = all_tracks
+            .iter()
+            .enumerate()
+            .filter(|(_, tr)| {
+                let cat_ok = match cat_filter {
+                    NavFilter::All => true,
+                    NavFilter::Classical => collections
+                        .get(tr.collection_idx)
+                        .map(|c| c.meta.category == "Classical")
+                        .unwrap_or(false),
+                    NavFilter::Modern => collections
+                        .get(tr.collection_idx)
+                        .map(|c| c.meta.category == "Modern")
+                        .unwrap_or(false),
+                };
+                if !cat_ok {
+                    return false;
+                }
+                if let Some(ref a_req) = artist_lower {
+                    if !a_req.is_empty() && !tr.artist.to_lowercase().contains(a_req) {
+                        return false;
+                    }
+                }
+                matches_multi_token(&[&tr.title, &tr.artist, &tr.album, &tr.work_title], query)
+            })
+            .map(|(idx, tr)| {
+                let mut score = 0i32;
+                if !q_lower.is_empty() {
+                    let tl = tr.title.to_lowercase();
+                    let wl = tr.work_title.to_lowercase();
+                    let arl = tr.artist.to_lowercase();
+                    if tl.starts_with(&q_lower) {
+                        score += 8;
+                    } else if tl.contains(&q_lower) {
+                        score += 4;
+                    }
+                    if wl.contains(&q_lower) {
+                        score += 2;
+                    }
+                    if arl.contains(&q_lower) {
+                        score += 1;
+                    }
+                }
+                (idx, score, tr.clone())
+            })
+            .collect();
+
+        matched.sort_by(|(idx_a, score_a, a), (idx_b, score_b, b)| {
+            let ord = match sort_field {
+                SearchSortField::Default => {
+                    score_b.cmp(score_a).then_with(|| idx_a.cmp(idx_b))
+                }
+                SearchSortField::Title => {
+                    natural_cmp(&a.title, &b.title).then_with(|| idx_a.cmp(idx_b))
+                }
+                SearchSortField::Artist => natural_cmp(&a.artist, &b.artist)
+                    .then_with(|| natural_cmp(&a.title, &b.title))
+                    .then_with(|| idx_a.cmp(idx_b)),
+                SearchSortField::Duration => {
+                    a.duration_secs.cmp(&b.duration_secs).then_with(|| idx_a.cmp(idx_b))
+                }
+            };
+            match sort_dir {
+                SortDir::Asc => ord,
+                SortDir::Desc => ord.reverse(),
+            }
+        });
+
+        let total = matched.len();
+        let capped = matched
+            .into_iter()
+            .take(250)
+            .map(|(_, _, tr)| tr)
+            .collect();
+        (capped, total)
     }
 
     fn format_mm_ss(secs: u64) -> String {
@@ -832,14 +1145,41 @@ impl eframe::App for VerdantEngawaApp {
                         .inner_margin(egui::Margin::symmetric(12.0, 3.0))
                         .show(ui, |ui| {
                             ui.horizontal(|ui| {
+                                let search_w = if self.search_query.is_empty() {
+                                    210.0
+                                } else {
+                                    190.0
+                                };
                                 let edit = egui::TextEdit::singleline(&mut self.search_query)
                                     .hint_text("Search tracks, collections...   Ctrl+K")
-                                    .desired_width(210.0)
+                                    .desired_width(search_w)
                                     .frame(false)
                                     .text_color(basalt_text);
-                                if ui.add(edit).changed() && !self.search_query.trim().is_empty() {
-                                    self.state
-                                        .navigate(ActiveView::Search(self.search_query.clone()));
+                                if ui.add(edit).changed() {
+                                    if self.search_query.trim().is_empty() {
+                                        if matches!(self.state.current_view, ActiveView::Search(_)) {
+                                            self.state.navigate(ActiveView::AllSongs);
+                                        }
+                                    } else {
+                                        self.state
+                                            .navigate(ActiveView::Search(self.search_query.clone()));
+                                    }
+                                }
+                                if !self.search_query.is_empty()
+                                    && ui
+                                        .add(
+                                            egui::Button::new(
+                                                RichText::new("✕").size(11.0).color(basalt_dim),
+                                            )
+                                            .frame(false),
+                                        )
+                                        .on_hover_text("Clear search")
+                                        .clicked()
+                                {
+                                    self.search_query.clear();
+                                    if matches!(self.state.current_view, ActiveView::Search(_)) {
+                                        self.state.navigate(ActiveView::AllSongs);
+                                    }
                                 }
                             });
                         });
@@ -1303,6 +1643,36 @@ impl eframe::App for VerdantEngawaApp {
                                         {
                                             self.compact_nav = !self.compact_nav;
                                         }
+
+                                        ui.add_space(4.0);
+                                        if ui
+                                            .add(
+                                                egui::Button::new(
+                                                    RichText::new(format!(
+                                                        "⇅ {}",
+                                                        self.sidebar_sort.short_label()
+                                                    ))
+                                                    .size(10.5)
+                                                    .color(
+                                                        if self.sidebar_sort
+                                                            == SidebarSortMode::Default
+                                                        {
+                                                            basalt_dim
+                                                        } else {
+                                                            sage_accent
+                                                        },
+                                                    ),
+                                                )
+                                                .fill(basalt_bg)
+                                                .rounding(Rounding::same(8.0)),
+                                            )
+                                            .on_hover_text(
+                                                "Sort collections: Default / A-Z / Track Count",
+                                            )
+                                            .clicked()
+                                        {
+                                            self.sidebar_sort = self.sidebar_sort.next();
+                                        }
                                     },
                                 );
                             });
@@ -1367,13 +1737,18 @@ impl eframe::App for VerdantEngawaApp {
                                 ui.add_space(4.0);
 
                                 if self.classical_open {
-                                    let indices: Vec<usize> = self
+                                    let mut indices: Vec<usize> = self
                                         .collections
                                         .iter()
                                         .enumerate()
                                         .filter(|(_, c)| c.meta.category == "Classical")
                                         .map(|(i, _)| i)
                                         .collect();
+                                    Self::sort_collection_indices_by(
+                                        &self.collections,
+                                        &mut indices,
+                                        self.sidebar_sort,
+                                    );
                                     for idx in indices {
                                         self.render_sidebar_collection_row(
                                             ui,
@@ -1411,13 +1786,18 @@ impl eframe::App for VerdantEngawaApp {
                                 ui.add_space(4.0);
 
                                 if self.modern_open {
-                                    let indices: Vec<usize> = self
+                                    let mut indices: Vec<usize> = self
                                         .collections
                                         .iter()
                                         .enumerate()
                                         .filter(|(_, c)| c.meta.category == "Modern")
                                         .map(|(i, _)| i)
                                         .collect();
+                                    Self::sort_collection_indices_by(
+                                        &self.collections,
+                                        &mut indices,
+                                        self.sidebar_sort,
+                                    );
                                     for idx in indices {
                                         self.render_sidebar_collection_row(
                                             ui,
@@ -1858,10 +2238,13 @@ impl eframe::App for VerdantEngawaApp {
                         self.render_all_songs_or_search_view(
                             ui,
                             &cur_track,
+                            washi_bg,
                             washi_elev,
                             washi_text,
                             washi_sub,
+                            washi_dim,
                             deep_moss,
+                            hairline_washi,
                         );
                     }
                     ActiveView::Settings => {
@@ -2470,6 +2853,22 @@ impl VerdantEngawaApp {
             return;
         };
 
+        if self.last_playlist_idx != Some(col_idx) {
+            self.playlist_filter.clear();
+            self.last_playlist_idx = Some(col_idx);
+        }
+
+        let displayed = Self::filter_and_sort_playlist_tracks(
+            &col.tracks,
+            &self.playlist_filter,
+            self.playlist_sort_field,
+            self.playlist_sort_dir,
+        );
+        let displayed_tracks: Vec<TrackEntry> =
+            displayed.iter().map(|(_, tr)| tr.clone()).collect();
+        let displayed_dur: u64 = displayed_tracks.iter().map(|t| t.duration_secs as u64).sum();
+        let filter_active = !self.playlist_filter.trim().is_empty();
+
         egui::ScrollArea::vertical()
             .auto_shrink([false, false])
             .show(ui, |ui| {
@@ -2521,19 +2920,29 @@ impl VerdantEngawaApp {
                                         .color(washi_sub),
                                 );
                                 ui.add_space(8.0);
-                                ui.label(
-                                    RichText::new(format!(
+                                let stats_line = if filter_active {
+                                    format!(
+                                        "{} of {} songs   ·   {}",
+                                        displayed_tracks.len(),
+                                        col.tracks.len(),
+                                        Self::format_collection_duration(displayed_dur)
+                                    )
+                                } else {
+                                    format!(
                                         "{} songs   ·   {}",
                                         col.tracks.len(),
                                         Self::format_collection_duration(col.total_duration_secs)
-                                    ))
-                                    .size(11.5)
-                                    .color(washi_dim),
+                                    )
+                                };
+                                ui.label(
+                                    RichText::new(stats_line)
+                                        .size(11.5)
+                                        .color(washi_dim),
                                 );
                                 ui.add_space(12.0);
 
-                                // Capsule CTA Buttons: [▶ Play all] (Deep Moss #3E5C44) & [🔀 Shuffle]
-                                ui.horizontal(|ui| {
+                                // Capsule CTA Buttons + Sort & Filter Controls
+                                ui.horizontal_wrapped(|ui| {
                                     if ui
                                         .add(
                                             egui::Button::new(
@@ -2547,9 +2956,9 @@ impl VerdantEngawaApp {
                                         )
                                         .clicked()
                                     {
-                                        self.play_collection(col_idx, false);
+                                        self.play_track_list(displayed_tracks.clone(), false);
                                     }
-                                    ui.add_space(8.0);
+                                    ui.add_space(6.0);
                                     if ui
                                         .add(
                                             egui::Button::new(
@@ -2564,8 +2973,100 @@ impl VerdantEngawaApp {
                                         )
                                         .clicked()
                                     {
-                                        self.play_collection(col_idx, true);
+                                        self.play_track_list(displayed_tracks.clone(), true);
                                     }
+
+                                    ui.add_space(10.0);
+
+                                    if ui
+                                        .add(
+                                            egui::Button::new(
+                                                RichText::new(format!(
+                                                    "Sort: {}",
+                                                    self.playlist_sort_field.label()
+                                                ))
+                                                .size(11.5)
+                                                .strong()
+                                                .color(
+                                                    if self.playlist_sort_field
+                                                        == PlaylistSortField::TrackOrder
+                                                    {
+                                                        washi_text
+                                                    } else {
+                                                        deep_moss
+                                                    },
+                                                ),
+                                            )
+                                            .fill(washi_elev)
+                                            .stroke(Stroke::new(1.0_f32, hairline_washi))
+                                            .rounding(Rounding::same(15.0)),
+                                        )
+                                        .on_hover_text(
+                                            "Cycle sort field: Track # / Title / Artist / Work / Duration",
+                                        )
+                                        .clicked()
+                                    {
+                                        self.playlist_sort_field =
+                                            self.playlist_sort_field.next();
+                                    }
+
+                                    if ui
+                                        .add(
+                                            egui::Button::new(
+                                                RichText::new(self.playlist_sort_dir.label())
+                                                    .size(11.5)
+                                                    .strong()
+                                                    .color(
+                                                        if self.playlist_sort_dir == SortDir::Asc {
+                                                            washi_sub
+                                                        } else {
+                                                            deep_moss
+                                                        },
+                                                    ),
+                                            )
+                                            .fill(washi_elev)
+                                            .stroke(Stroke::new(1.0_f32, hairline_washi))
+                                            .rounding(Rounding::same(15.0)),
+                                        )
+                                        .on_hover_text("Toggle Ascending / Descending")
+                                        .clicked()
+                                    {
+                                        self.playlist_sort_dir = self.playlist_sort_dir.toggle();
+                                    }
+
+                                    ui.add_space(4.0);
+                                    egui::Frame::none()
+                                        .fill(washi_bg)
+                                        .rounding(Rounding::same(15.0))
+                                        .stroke(Stroke::new(1.0_f32, hairline_washi))
+                                        .inner_margin(egui::Margin::symmetric(10.0, 4.0))
+                                        .show(ui, |ui| {
+                                            ui.horizontal(|ui| {
+                                                let edit = egui::TextEdit::singleline(
+                                                    &mut self.playlist_filter,
+                                                )
+                                                .hint_text("Filter in collection...")
+                                                .desired_width(142.0)
+                                                .frame(false)
+                                                .text_color(washi_text);
+                                                ui.add(edit);
+                                                if !self.playlist_filter.is_empty()
+                                                    && ui
+                                                        .add(
+                                                            egui::Button::new(
+                                                                RichText::new("✕")
+                                                                    .size(11.0)
+                                                                    .color(washi_dim),
+                                                            )
+                                                            .frame(false),
+                                                        )
+                                                        .on_hover_text("Clear collection filter")
+                                                        .clicked()
+                                                {
+                                                    self.playlist_filter.clear();
+                                                }
+                                            });
+                                        });
                                 });
                             });
                         });
@@ -2583,7 +3084,37 @@ impl VerdantEngawaApp {
                 egui::Frame::none()
                     .inner_margin(egui::Margin::symmetric(28.0, 12.0))
                     .show(ui, |ui| {
-                        for (t_idx, tr) in col.tracks.iter().enumerate() {
+                        if displayed.is_empty() {
+                            ui.add_space(16.0);
+                            ui.horizontal(|ui| {
+                                ui.label(
+                                    RichText::new("No tracks match the current filter.")
+                                        .size(13.0)
+                                        .color(washi_sub),
+                                );
+                                if filter_active {
+                                    ui.add_space(8.0);
+                                    if ui
+                                        .add(
+                                            egui::Button::new(
+                                                RichText::new("Clear filter")
+                                                    .size(12.0)
+                                                    .color(deep_moss),
+                                            )
+                                            .fill(washi_elev)
+                                            .stroke(Stroke::new(1.0_f32, hairline_washi))
+                                            .rounding(Rounding::same(12.0)),
+                                        )
+                                        .clicked()
+                                    {
+                                        self.playlist_filter.clear();
+                                    }
+                                }
+                            });
+                            return;
+                        }
+
+                        for (disp_idx, (orig_idx, tr)) in displayed.iter().enumerate() {
                             let is_playing_this = cur_track
                                 .as_ref()
                                 .map(|c| c.path == tr.path)
@@ -2626,7 +3157,7 @@ impl VerdantEngawaApp {
                                 let num_str = if resp.hovered() {
                                     "▶".to_string()
                                 } else {
-                                    format!("{:02}", t_idx + 1)
+                                    format!("{:02}", orig_idx + 1)
                                 };
                                 painter.text(
                                     Pos2::new(rect.left() + 18.0, rect.center().y),
@@ -2699,8 +3230,8 @@ impl VerdantEngawaApp {
                             );
 
                             if resp.clicked() {
-                                self.queue = col.tracks.clone();
-                                self.queue_pos = t_idx;
+                                self.queue = displayed_tracks.clone();
+                                self.queue_pos = disp_idx;
                                 self.play_track(tr.clone());
                             }
                         }
@@ -2708,31 +3239,32 @@ impl VerdantEngawaApp {
             });
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn render_all_songs_or_search_view(
         &mut self,
         ui: &mut egui::Ui,
         cur_track: &Option<TrackEntry>,
+        _washi_bg: Color32,
         washi_elev: Color32,
         washi_text: Color32,
         washi_sub: Color32,
+        washi_dim: Color32,
         deep_moss: Color32,
+        hairline_washi: Color32,
     ) {
-        let q = self.search_query.trim().to_lowercase();
-        let filtered: Vec<TrackEntry> = self
-            .all_tracks
-            .iter()
-            .filter(|t| {
-                if q.is_empty() {
-                    true
-                } else {
-                    t.title.to_lowercase().contains(&q)
-                        || t.artist.to_lowercase().contains(&q)
-                        || t.album.to_lowercase().contains(&q)
-                }
-            })
-            .take(250)
-            .cloned()
-            .collect();
+        let artist_owned = match &self.state.current_view {
+            ActiveView::Artist(a) => Some(a.clone()),
+            _ => None,
+        };
+        let (filtered, total_matches) = Self::filter_and_sort_search_tracks(
+            &self.all_tracks,
+            &self.collections,
+            &self.search_query,
+            artist_owned.as_deref(),
+            self.search_cat_filter,
+            self.search_sort_field,
+            self.search_sort_dir,
+        );
 
         egui::ScrollArea::vertical()
             .auto_shrink([false, false])
@@ -2740,13 +3272,111 @@ impl VerdantEngawaApp {
                 egui::Frame::none()
                     .inner_margin(egui::Margin::symmetric(28.0, 16.0))
                     .show(ui, |ui| {
+                        // Category Filter Pills + Sort Controls
+                        ui.horizontal_wrapped(|ui| {
+                            for (lbl, cat) in [
+                                ("All", NavFilter::All),
+                                ("Classical", NavFilter::Classical),
+                                ("Modern", NavFilter::Modern),
+                            ] {
+                                let active = self.search_cat_filter == cat;
+                                if ui
+                                    .add(
+                                        egui::Button::new(
+                                            RichText::new(lbl).size(11.5).strong().color(
+                                                if active { Color32::WHITE } else { washi_text },
+                                            ),
+                                        )
+                                        .fill(if active { deep_moss } else { washi_elev })
+                                        .stroke(Stroke::new(1.0_f32, hairline_washi))
+                                        .rounding(Rounding::same(14.0)),
+                                    )
+                                    .clicked()
+                                {
+                                    self.search_cat_filter = cat;
+                                }
+                            }
+
+                            ui.with_layout(
+                                egui::Layout::right_to_left(egui::Align::Center),
+                                |ui| {
+                                    if ui
+                                        .add(
+                                            egui::Button::new(
+                                                RichText::new(self.search_sort_dir.label())
+                                                    .size(11.5)
+                                                    .strong()
+                                                    .color(
+                                                        if self.search_sort_dir == SortDir::Asc {
+                                                            washi_sub
+                                                        } else {
+                                                            deep_moss
+                                                        },
+                                                    ),
+                                            )
+                                            .fill(washi_elev)
+                                            .stroke(Stroke::new(1.0_f32, hairline_washi))
+                                            .rounding(Rounding::same(14.0)),
+                                        )
+                                        .on_hover_text("Toggle Ascending / Descending")
+                                        .clicked()
+                                    {
+                                        self.search_sort_dir = self.search_sort_dir.toggle();
+                                    }
+
+                                    ui.add_space(6.0);
+                                    if ui
+                                        .add(
+                                            egui::Button::new(
+                                                RichText::new(format!(
+                                                    "Sort: {}",
+                                                    self.search_sort_field.label()
+                                                ))
+                                                .size(11.5)
+                                                .strong()
+                                                .color(
+                                                    if self.search_sort_field
+                                                        == SearchSortField::Default
+                                                    {
+                                                        washi_text
+                                                    } else {
+                                                        deep_moss
+                                                    },
+                                                ),
+                                            )
+                                            .fill(washi_elev)
+                                            .stroke(Stroke::new(1.0_f32, hairline_washi))
+                                            .rounding(Rounding::same(14.0)),
+                                        )
+                                        .on_hover_text(
+                                            "Cycle sort: Relevance / Title / Artist / Duration",
+                                        )
+                                        .clicked()
+                                    {
+                                        self.search_sort_field = self.search_sort_field.next();
+                                    }
+                                },
+                            );
+                        });
+
+                        ui.add_space(10.0);
+                        let count_label = if total_matches > filtered.len() {
+                            format!(
+                                "Showing {} of {} matching tracks",
+                                filtered.len(),
+                                total_matches
+                            )
+                        } else {
+                            format!("Showing {} tracks", filtered.len())
+                        };
                         ui.label(
-                            RichText::new(format!("Showing {} tracks", filtered.len()))
+                            RichText::new(count_label)
                                 .size(12.0)
                                 .color(washi_sub),
                         );
                         ui.add_space(10.0);
-                        for tr in filtered {
+
+                        for (idx, tr) in filtered.iter().enumerate() {
                             let is_cur = cur_track
                                 .as_ref()
                                 .map(|c| c.path == tr.path)
@@ -2767,15 +3397,31 @@ impl VerdantEngawaApp {
                                 egui::FontId::proportional(13.0),
                                 if is_cur { deep_moss } else { washi_text },
                             );
+                            let sub_line = if !tr.work_title.is_empty()
+                                && tr.work_title != tr.title
+                            {
+                                format!("{}  ·  {}  ·  {}", tr.artist, tr.work_title, tr.album)
+                            } else {
+                                format!("{}  ·  {}", tr.artist, tr.album)
+                            };
                             painter.text(
                                 Pos2::new(rect.left() + 14.0, rect.top() + 30.0),
                                 egui::Align2::LEFT_CENTER,
-                                format!("{}  ·  {}", tr.artist, tr.album),
+                                sub_line,
                                 egui::FontId::proportional(11.0),
                                 washi_sub,
                             );
+                            painter.text(
+                                Pos2::new(rect.right() - 14.0, rect.center().y),
+                                egui::Align2::RIGHT_CENTER,
+                                Self::format_mm_ss(tr.duration_secs as u64),
+                                egui::FontId::proportional(11.5),
+                                washi_dim,
+                            );
                             if resp.clicked() {
-                                self.play_track(tr);
+                                self.queue = filtered.clone();
+                                self.queue_pos = idx;
+                                self.play_track(tr.clone());
                             }
                         }
                     });
@@ -3062,4 +3708,220 @@ pub fn run_native_engawa_window(
         }),
     )
     .map_err(|e| format!("eframe error: {e}"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn mk_track(
+        title: &str,
+        artist: &str,
+        album: &str,
+        work_title: &str,
+        movement_title: &str,
+        collection_idx: usize,
+        duration_secs: u32,
+    ) -> TrackEntry {
+        TrackEntry {
+            title: title.into(),
+            artist: artist.into(),
+            album: album.into(),
+            collection_idx,
+            path: PathBuf::from(format!("/music/{collection_idx}/{title}.flac")),
+            duration_secs,
+            work_title: work_title.into(),
+            movement_title: movement_title.into(),
+        }
+    }
+
+    fn mk_col(name: &str, category: &str, track_count: usize) -> CollectionData {
+        let tracks = (0..track_count)
+            .map(|i| mk_track(&format!("Track {}", i + 1), "Artist", name, name, "", 0, 200))
+            .collect();
+        CollectionData {
+            meta: CuratedCollection {
+                name: name.into(),
+                category: category.into(),
+                cover_file: "pl_01.png".into(),
+                hue_rgb: [72, 92, 76],
+                tag_line: category.to_uppercase(),
+                description: String::new(),
+            },
+            tracks,
+            total_duration_secs: (track_count as u64) * 200,
+        }
+    }
+
+    #[test]
+    fn test_sidebar_collection_sorting_preserves_indices() {
+        let cols = vec![
+            mk_col("Symphony No. 10", "Classical", 4),
+            mk_col("Symphony No. 2", "Classical", 12),
+            mk_col("Concertos Op. 9", "Classical", 6),
+        ];
+
+        let mut indices = vec![0usize, 1, 2];
+        VerdantEngawaApp::sort_collection_indices_by(&cols, &mut indices, SidebarSortMode::Default);
+        assert_eq!(indices, vec![0, 1, 2]);
+
+        VerdantEngawaApp::sort_collection_indices_by(&cols, &mut indices, SidebarSortMode::NameAZ);
+        assert_eq!(indices, vec![2, 1, 0]);
+
+        VerdantEngawaApp::sort_collection_indices_by(
+            &cols,
+            &mut indices,
+            SidebarSortMode::TrackCount,
+        );
+        assert_eq!(indices, vec![1, 2, 0]);
+    }
+
+    #[test]
+    fn test_playlist_filter_natural_sort_and_queue_sync() {
+        let tracks = vec![
+            mk_track(
+                "Symphony No. 10 — IV. Finale",
+                "Wilhelm Furtwangler",
+                "Berlin",
+                "Symphony No. 10",
+                "IV. Finale",
+                0,
+                420,
+            ),
+            mk_track(
+                "Symphony No. 2 — I. Allegro",
+                "Zubin Mehta",
+                "Munich",
+                "Symphony No. 2",
+                "I. Allegro",
+                0,
+                510,
+            ),
+            mk_track(
+                "Symphony No. 2 — II. Adagio",
+                "Zubin Mehta",
+                "Munich",
+                "Symphony No. 2",
+                "II. Adagio",
+                0,
+                310,
+            ),
+            mk_track(
+                "Op. 9 Nocturne — I. Allegro",
+                "Zubin Mehta",
+                "Munich",
+                "Op. 9 Nocturne",
+                "I. Allegro",
+                0,
+                260,
+            ),
+        ];
+
+        // Multi-token AND matching: "mehta allegro"
+        let filtered = VerdantEngawaApp::filter_and_sort_playlist_tracks(
+            &tracks,
+            "mehta allegro",
+            PlaylistSortField::Title,
+            SortDir::Asc,
+        );
+        assert_eq!(filtered.len(), 2);
+        assert_eq!(filtered[0].0, 3);
+        assert_eq!(filtered[0].1.title, "Op. 9 Nocturne — I. Allegro");
+        assert_eq!(filtered[1].0, 1);
+        assert_eq!(filtered[1].1.title, "Symphony No. 2 — I. Allegro");
+
+        // Queue receives the filtered + sorted list
+        let q = VerdantEngawaApp::prepare_queue_from_tracks(
+            filtered.iter().map(|(_, t)| t.clone()).collect(),
+            false,
+        );
+        assert_eq!(q.len(), 2);
+        assert_eq!(q[0].title, "Op. 9 Nocturne — I. Allegro");
+        let q_shuf = VerdantEngawaApp::prepare_queue_from_tracks(q, true);
+        assert_eq!(q_shuf[0].title, "Symphony No. 2 — I. Allegro");
+
+        // Natural sort on Title over all tracks
+        let by_title = VerdantEngawaApp::filter_and_sort_playlist_tracks(
+            &tracks,
+            "",
+            PlaylistSortField::Title,
+            SortDir::Asc,
+        );
+        assert_eq!(by_title[1].1.title, "Symphony No. 2 — I. Allegro");
+        assert_eq!(by_title[3].1.title, "Symphony No. 10 — IV. Finale");
+
+        // Duration DESC
+        let by_dur_desc = VerdantEngawaApp::filter_and_sort_playlist_tracks(
+            &tracks,
+            "",
+            PlaylistSortField::Duration,
+            SortDir::Desc,
+        );
+        assert_eq!(by_dur_desc[0].1.duration_secs, 510);
+        assert_eq!(by_dur_desc[3].1.duration_secs, 260);
+    }
+
+    #[test]
+    fn test_search_view_category_multi_token_and_natural_sort() {
+        let cols = vec![
+            mk_col("Brahms Archive", "Classical", 0),
+            mk_col("Radiohead Live", "Modern", 0),
+        ];
+        let all_tracks = vec![
+            mk_track(
+                "Symphony No. 10 — I. Allegro",
+                "Zubin Mehta",
+                "Munich 2024",
+                "Brahms Op. 90",
+                "I. Allegro",
+                0,
+                500,
+            ),
+            mk_track(
+                "Symphony No. 2 — I. Allegro",
+                "Zubin Mehta",
+                "Munich 2024",
+                "Brahms Op. 9",
+                "I. Allegro",
+                0,
+                320,
+            ),
+            mk_track(
+                "Paranoid Android (Allegro Live)",
+                "Radiohead",
+                "OKNOTOK",
+                "OK Computer",
+                "",
+                1,
+                380,
+            ),
+        ];
+
+        // Category Modern only
+        let (modern_only, total_mod) = VerdantEngawaApp::filter_and_sort_search_tracks(
+            &all_tracks,
+            &cols,
+            "allegro",
+            None,
+            NavFilter::Modern,
+            SearchSortField::Default,
+            SortDir::Asc,
+        );
+        assert_eq!(total_mod, 1);
+        assert_eq!(modern_only[0].artist, "Radiohead");
+
+        // Category Classical + multi-token across work_title ("op. allegro") + Title natural sort
+        let (classical_sorted, total_cls) = VerdantEngawaApp::filter_and_sort_search_tracks(
+            &all_tracks,
+            &cols,
+            "brahms allegro",
+            None,
+            NavFilter::Classical,
+            SearchSortField::Title,
+            SortDir::Asc,
+        );
+        assert_eq!(total_cls, 2);
+        assert_eq!(classical_sorted[0].title, "Symphony No. 2 — I. Allegro");
+        assert_eq!(classical_sorted[1].title, "Symphony No. 10 — I. Allegro");
+    }
 }
