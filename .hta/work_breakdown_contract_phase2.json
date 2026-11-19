@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "project_id": "RMPD-NEXTGEN-PHASE2-HARDWARE-AND-FOOBAR-PARITY",
-  "functional_purpose": "Giai đoạn 2 (Hardware Wiring & Live Foobar2000 Parity): Nối bộ giải mã Symphonia + CPAL WASAPI/ASIO vật lý, cửa sổ GPU Native (Slint/iced) cho 8 Views Verdant Engawa, OS Media/Discord RPC/Tray thật, đóng gói bộ cài đặt .msi/.AppImage/.dmg, và thực thi Quy trình Đối chiếu Song song 5 Trục (5-Axis Parity Audit) với bản foobar2000 + Verdant đang chạy trong máy.",
+  "functional_purpose": "Giai đoạn 2 (100% Argon + Deterministic Python, 0% Gemini Drain): Nối bộ giải mã Symphonia + CPAL WASAPI/ASIO vật lý, cửa sổ GPU Native (Slint/iced) cho 8 Views Verdant Engawa, OS Media/Discord RPC/Tray thật, đóng gói bộ cài đặt .msi/.AppImage/.dmg, và thực thi Quy trình Đối chiếu Song song 5 Trục (5-Axis Parity Audit) với bản foobar2000 + Verdant trong máy.",
   "triage_4_variables": {
     "complexity": "HIGH",
     "uncertainty": "MEDIUM",
@@ -16,13 +16,13 @@
     "independent_quality_gate_required": true,
     "orchestration_roles": {
       "architect_model": "pro",
-      "expediter_model": "flash"
+      "expediter_model": "deterministic"
     }
   },
   "abstract_mechanisms": [
-    "5-Axis Live Parity Protocol: Đối chiếu tất định giữa G:/Music/foobar2000 + AppData/verdant và rmpd-nextgen trên 5 trục (Design Tokens, Classical/Library Data, DSP/72-Band FFT, 8-View UX/Integrations, RAM/Startup Benchmark).",
-    "Hardware & Native GPU Wiring: Thay thế mock/headless adapter bằng Symphonia + CPAL WASAPI Exclusive/ASIO, Slint/iced GPU window, souvlaki SMTC/MPRIS2, discord-rich-presence và WiX v4 .msi.",
-    "3-Model Load Balancing: Xoay quanh Argon (High), Neon (High/Medium), Hydrogen (High/Medium) với tối đa 1 luồng Argon/Wave và cô lập tuyệt đối target_scope."
+    "Zero-Gemini Quota Preservation: Chuyển T-08.01 (PREP) và T-11.01 (PASS_GATE) kèm Expediter sang DETERMINISTIC_TOOL (0 LLM token), và gom toàn bộ 7 trạm code/thiết kế về Argon (High/Medium) để tận dụng 30% ngân sách Argon khả dụng và giữ 100% Gemini cho công việc hằng ngày.",
+    "5-Axis Live Parity Protocol: Đối chiếu tất định giữa G:/Music/foobar2000 + AppData/verdant và rmpd-nextgen qua scripts/foobar_verdant_parity_auditor.py.",
+    "Station Isolation: Tối đa 2 luồng Argon song song mỗi Wave (Wave 3 & Wave 4) với target_scope tách biệt hoàn toàn."
   ],
   "milestones": [
     {
@@ -66,20 +66,19 @@
     {
       "task_id": "T-08.01",
       "milestone_id": "M8",
-      "name": "Quét Baseline thực tế từ G:/Music/foobar2000 & AppData/Roaming/foobar2000-v2/verdant",
+      "name": "Quét Baseline tất định từ G:/Music/foobar2000 & AppData/Roaming/foobar2000-v2/verdant bằng Python",
       "dependencies": [],
       "assigned_skill": "scholarly-deep-research",
-      "execution_mode": "ISOLATED_SUBAGENT",
-      "assigned_model": "flash",
-      "recommended_engine": "Gemini Hydrogen (High)",
+      "execution_mode": "DETERMINISTIC_TOOL",
+      "recommended_engine": "Python Script (foobar_verdant_parity_auditor.py — 0 LLM Token)",
       "station_role": "PREP",
       "permission_zone": "READ_ONLY",
       "target_scope": ["scratch/parity_baseline"],
       "firing_wave": 1,
       "requires_human_approval": false,
       "emits_artifacts": ["ResearchReportContract"],
-      "token_budget": 2500,
-      "acceptance_criteria": "Trích xuất đầy đủ bảng mã màu RGB, 4 regex classical_work, danh sách verdant-collections.json, thông số FFT 72-band và footprint của foobar2000.exe."
+      "token_budget": 500,
+      "acceptance_criteria": "Xuất báo cáo JSON trích xuất đủ 8 mã màu RGB, 4 regex classical_work, 18 bộ sưu tập verdant-collections.json, FFT 72-band và footprint foobar2000.exe."
     },
     {
       "task_id": "T-08.02",
@@ -126,8 +125,8 @@
       "dependencies": ["T-08.02"],
       "assigned_skill": "software-engineering-orchestrator",
       "execution_mode": "ISOLATED_SUBAGENT",
-      "assigned_model": "flash",
-      "recommended_engine": "Gemini Hydrogen (Medium)",
+      "assigned_model": "pro",
+      "recommended_engine": "Argon (Medium)",
       "station_role": "STATION",
       "permission_zone": "WORKSPACE_WRITE",
       "target_scope": ["crates/rmpd-tagger", "crates/rmpd-library"],
@@ -146,7 +145,7 @@
       "assigned_skill": "creative-ui-and-visual-arts",
       "execution_mode": "ISOLATED_SUBAGENT",
       "assigned_model": "pro",
-      "recommended_engine": "Gemini Neon (High)",
+      "recommended_engine": "Argon (High)",
       "station_role": "STATION",
       "permission_zone": "WORKSPACE_WRITE",
       "target_scope": ["crates/rmpd-client-ui"],
@@ -164,8 +163,8 @@
       "dependencies": ["T-09.01"],
       "assigned_skill": "software-engineering-orchestrator",
       "execution_mode": "ISOLATED_SUBAGENT",
-      "assigned_model": "flash",
-      "recommended_engine": "Gemini Neon (Medium)",
+      "assigned_model": "pro",
+      "recommended_engine": "Argon (Medium)",
       "station_role": "STATION",
       "permission_zone": "WORKSPACE_WRITE",
       "target_scope": ["crates/rmpd-os-media", "crates/rmpd-launcher"],
@@ -183,6 +182,7 @@
       "dependencies": ["T-10.01", "T-10.02"],
       "assigned_skill": "applied-mathematics-and-modeling",
       "execution_mode": "DETERMINISTIC_TOOL",
+      "recommended_engine": "Python Script (0 LLM Token)",
       "station_role": "PASS_GATE",
       "permission_zone": "SANDBOX_COMPUTE",
       "target_scope": ["scripts", "scratch/parity_reports"],
@@ -190,8 +190,8 @@
       "requires_human_approval": false,
       "consumes_artifacts": ["InteractiveUIComponent", "VerifiedCodebase", "TestReport"],
       "emits_artifacts": ["MathProofCapsule", "Solution"],
-      "token_budget": 1500,
-      "acceptance_criteria": "Xuất báo cáo parity_audit_report.json đạt 100% trên Trục 1 (Tokens), Trục 2 (Classical/Collections), Trục 3 (FFT/R128) và Trục 5 (Footprint)."
+      "token_budget": 500,
+      "acceptance_criteria": "Xuất báo cáo parity_audit_report.json đạt 100% trên cả 5 trục đối chiếu với foobar2000 + Verdant."
     },
     {
       "task_id": "T-11.02",
@@ -219,8 +219,8 @@
       "dependencies": ["T-11.01", "T-11.02"],
       "assigned_skill": "software-engineering-orchestrator",
       "execution_mode": "ISOLATED_SUBAGENT",
-      "assigned_model": "flash",
-      "recommended_engine": "Gemini Hydrogen (Medium)",
+      "assigned_model": "pro",
+      "recommended_engine": "Argon (Medium)",
       "station_role": "STATION",
       "permission_zone": "WORKSPACE_WRITE",
       "target_scope": ["packaging/dist", "ci/release_pipeline", "docs/user_guide"],
@@ -233,8 +233,8 @@
     }
   ],
   "token_budget_summary": {
-    "allocated_window_tokens": 27000,
-    "max_project_budget": 45000,
+    "allocated_window_tokens": 24000,
+    "max_project_budget": 40000,
     "prompt_cache_preservation_target": "90%"
   }
 }

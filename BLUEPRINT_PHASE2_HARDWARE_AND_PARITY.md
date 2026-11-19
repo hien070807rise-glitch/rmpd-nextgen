@@ -36,15 +36,17 @@ Quy trình đối chiếu được tự động hóa qua script [`scripts/foobar
 
 | Wave | Task ID & Mục tiêu | Vai trò | Agent & Effort | `target_scope` (Cô lập) | Token |
 | :---: | :--- | :---: | :--- | :--- | :---: |
-| **1** | **`T-08.01`** (`M8`)<br>Quét Baseline thực tế từ `G:\Music\foobar2000` & `AppData\...\verdant` | `PREP` | **Hydrogen (High)** | `scratch/parity_baseline` | 2.500 |
+| **1** | **`T-08.01`** (`M8`)<br>Quét Baseline tất định từ `G:\Music\foobar2000` & `AppData\...\verdant` | `PREP` | **Python Script** *(0 LLM Token)* | `scratch/parity_baseline` | 500 |
 | **2** | **`T-08.02`** (`M8`)<br>Khóa Hợp đồng Tích hợp Phần cứng & Khung Đối chiếu 5 Trục | `STATION` | **Argon (High)** | `contracts/phase2_parity` | 2.500 |
 | **3** *(Song song)* | **`T-09.01`** (`M9`)<br>Nối `Symphonia` Decoder + `CPAL` (WASAPI Exclusive/ASIO) phát nhạc thật & bơm PCM vào FFT Tap | `STATION` | **Argon (High)** | `crates/rmpd-player`, `crates/rmpd-dsp` | 4.500 |
-| **3** *(Song song)* | **`T-09.02`** (`M9`)<br>Nối `lofty` đọc/ghi Tag thật, `notify` File Watcher cho FTS5 & HTTP Client gọi `lrclib.net` | `STATION` | **Hydrogen (Medium)** | `crates/rmpd-tagger`, `crates/rmpd-library` | 3.000 |
-| **4** *(Song song)* | **`T-10.01`** (`M10`)<br>Nối Cửa sổ GPU Native (`Slint`/`iced`) cho 8 Views Verdant Engawa, Frameless Bar & 60fps FFT | `STATION` | **Neon (High)** | `crates/rmpd-client-ui` | 4.500 |
-| **4** *(Song song)* | **`T-10.02`** (`M11`)<br>Nối Windows `SMTC` / Linux `MPRIS2`, Local Discord IPC Pipe & System Tray trong `rmpd-launcher` | `STATION` | **Neon (Medium)** | `crates/rmpd-os-media`, `crates/rmpd-launcher` | 3.000 |
-| **5** *(Song song)* | **`T-11.01`** (`M12`)<br>Chạy Kiểm toán Đối chiếu Tự động 5 Trục (`foobar_verdant_parity_auditor.py`) | `PASS_GATE` | **Python Script** (0 LLM) | `scripts`, `scratch/parity_reports` | 1.500 |
+| **3** *(Song song)* | **`T-09.02`** (`M9`)<br>Nối `lofty` đọc/ghi Tag thật, `notify` File Watcher cho FTS5 & HTTP Client gọi `lrclib.net` | `STATION` | **Argon (Medium)** | `crates/rmpd-tagger`, `crates/rmpd-library` | 3.000 |
+| **4** *(Song song)* | **`T-10.01`** (`M10`)<br>Nối Cửa sổ GPU Native (`Slint`/`iced`) cho 8 Views Verdant Engawa, Frameless Bar & 60fps FFT | `STATION` | **Argon (High)** | `crates/rmpd-client-ui` | 4.500 |
+| **4** *(Song song)* | **`T-10.02`** (`M11`)<br>Nối Windows `SMTC` / Linux `MPRIS2`, Local Discord IPC Pipe & System Tray trong `rmpd-launcher` | `STATION` | **Argon (Medium)** | `crates/rmpd-os-media`, `crates/rmpd-launcher` | 3.000 |
+| **5** *(Song song)* | **`T-11.01`** (`M12`)<br>Chạy Kiểm toán Đối chiếu Tự động 5 Trục (`foobar_verdant_parity_auditor.py`) | `PASS_GATE` | **Python Script** *(0 LLM Token)* | `scripts`, `scratch/parity_reports` | 500 |
 | **5** *(Song song)* | **`T-11.02`** (`M12`)<br>Kiểm thử E2E A/B Parity trên dữ liệu thật của máy & Quét An toàn Bảo mật (`swe_security_auditor.py`) | `STATION` | **Argon (High)** | `crates/rmpd-launcher/tests` | 3.000 |
-| **6** | **`T-12.01`** (`M13`)<br>Biên dịch Bộ cài đặt `.msi` (WiX v4) + Portable `.zip`, Ký `SHA256SUMS` & Nghiệm thu 4 Trụ cột | `STATION` | **Hydrogen (Medium)** | `packaging/dist`, `ci/release_pipeline`, `docs/user_guide` | 2.500 |
+| **6** | **`T-12.01`** (`M13`)<br>Biên dịch Bộ cài đặt `.msi` (WiX v4) + Portable `.zip`, Ký `SHA256SUMS` & Nghiệm thu 4 Trụ cột | `STATION` | **Argon (Medium)** | `packaging/dist`, `ci/release_pipeline`, `docs/user_guide` | 2.500 |
 
-* **Đường găng (*Critical Path*):** `T-08.01 -> T-08.02 -> T-09.01 -> T-10.01 -> T-11.02 -> T-12.01` (**19.500 tokens**; tổng 9 tasks: **27.000 / 45.000 tokens**).
+* **Tiêu hao Pool Gemini (`Neon` / `Hydrogen`):** **`0%`** (Bảo toàn 100% quota Gemini cho các tác vụ hằng ngày của bạn; cả `PREP`, `PASS_GATE` và `Expediter` đều chuyển sang `DETERMINISTIC_TOOL` bằng Python).
+* **Tiêu hao Pool Argon:** Gánh toàn bộ 7 trạm suy luận & viết code (`4 High` + `3 Medium`, tối đa 2 luồng Argon/Wave), dự kiến chỉ tiêu thụ khoảng **10%–15% Argon** (giữ lại được **25%–30% Argon**, cao hơn nhiều so với mức sàn an toàn 10% bạn yêu cầu).
+* **Đường găng (*Critical Path*):** `T-08.01 -> T-08.02 -> T-09.01 -> T-10.01 -> T-11.02 -> T-12.01` (**17.500 tokens**; tổng 9 tasks: **24.000 / 40.000 tokens**).
 * **Hợp đồng DAG Giai đoạn 2:** Xem [`.hta/work_breakdown_contract_phase2.json`](./.hta/work_breakdown_contract_phase2.json).
