@@ -4,7 +4,7 @@
 > Khi người dùng gửi tệp này để bắt đầu thi công, Agent điều phối (`/hta` + `/token-efficient-handoff`) thực hiện ngay các bước sau:
 > 1. Trích xuất hoặc nạp trực tiếp `.hta/work_breakdown_contract.json` và kiểm toán bằng `dag_integrity_verifier.py --strict-signatures`.
 > 2. Chuyển trạng thái máy trạng thái `.hta/task_lifecycle.json` sang `RUNNING`.
-> 3. Thực thi tuần tự theo **8 Waves** (`Wave 1` $\rightarrow$ `Wave 8`). Mỗi đợt song song chỉ chạy tối đa 2 luồng `Argon (pro)`, tuân thủ tuyệt đối `target_scope` và `permission_zone`, checkpoint sau mỗi bước và nghiệm thu cuối cùng qua `independent_quality_gate.py`.
+> 3. Thực thi tuần tự theo **8 Waves** (`Wave 1` $\rightarrow$ `Wave 8`) với phân bổ xoay quanh 3 model **Argon / Neon / Hydrogen** (tối đa 1 luồng `Argon` / Wave), tuân thủ tuyệt đối `target_scope` và `permission_zone`, checkpoint sau mỗi bước và nghiệm thu cuối cùng qua `independent_quality_gate.py`.
 
 ---
 
@@ -54,18 +54,18 @@ flowchart TD
 
 | Wave | Task ID | Nội dung tóm tắt | Vai trò | Agent & Effort | `target_scope` (Cô lập) | Token |
 | :---: | :--- | :--- | :---: | :--- | :--- | :---: |
-| **1** | `T-01.01` | Sơ chế `M0Rf30/rmpd` & trích xuất đặc tả Verdant Engawa cục bộ | `PREP` | **Gemini Hydrogen (High)** | `vendor/rmpd`, `scratch/prep_manifests` | 2.500 |
+| **1** | `T-01.01` | Sơ chế `M0Rf30/rmpd` & trích xuất đặc tả Verdant Engawa cục bộ | `PREP` | **Hydrogen (High)** | `vendor/rmpd`, `scratch/prep_manifests` | 2.500 |
 | **2** | `T-01.02` | Thiết kế 9 Crate, Dual-Channel IPC (MPD + PCM/FFT Tap), Anti-Pop & Launcher | `STATION` | **Argon (High)** | `scratch/architecture_spec` | 2.500 |
 | **3** | `T-01.03` | Khóa 6 Hợp đồng Giao diện (*Contract-First*) | `STATION` | **Argon (High)** | `contracts/interfaces` | 2.500 |
 | **4** | `T-02.01` | TDD Audio Engine, Anti-Pop Sample-Rate, True Shuffle & 72-Band Hertz FFT Tap | `STATION` | **Argon (High)** | `crates/rmpd-player`, `crates/rmpd-dsp` | 4.500 |
-| **4** | `T-03.01` | TDD `SQLite FTS5`, Classical Work/Movement, Collections, Disk Art & MPD Server | `STATION` | **Argon (Medium)** | `crates/rmpd-library`, `crates/rmpd-protocol` | 3.500 |
-| **5** | `T-03.02` | TDD Atomic Tag Writer (`lofty`), `EBU R128` & 3-Tier Lyrics (`LRCLIB`) | `STATION` | **Argon (Medium)** | `crates/rmpd-tagger` | 3.000 |
-| **5** | `T-04.01` | TDD DSP Plugin Host (C-ABI/CLAP), OS Media (`SMTC`/`MPRIS2`) & Discord RPC | `STATION` | **Argon (Medium)** | `crates/rmpd-plugin`, `crates/rmpd-os-media` | 3.000 |
-| **6** | `T-05.01` | Giao diện Verdant Engawa (`Slint`/`iced` GPU): 8 Views, 4 Presets, Fullscreen FFT | `STATION` | **Argon (High)** | `crates/rmpd-client-ui` | 4.500 |
-| **6** | `T-05.02` | `rmpd-launcher` (Auto-Spawn Daemon, Single-Instance, System Tray, Watchdog) | `STATION` | **Argon (Medium)** | `crates/rmpd-launcher` | 2.500 |
+| **4** | `T-03.01` | TDD `SQLite FTS5`, Classical Work/Movement, Collections, Disk Art & MPD Server | `STATION` | **Neon (High)** | `crates/rmpd-library`, `crates/rmpd-protocol` | 3.500 |
+| **5** | `T-03.02` | TDD Atomic Tag Writer (`lofty`), `EBU R128` & 3-Tier Lyrics (`LRCLIB`) | `STATION` | **Hydrogen (Medium)** | `crates/rmpd-tagger` | 3.000 |
+| **5** | `T-04.01` | TDD DSP Plugin Host (C-ABI/CLAP), OS Media (`SMTC`/`MPRIS2`) & Discord RPC | `STATION` | **Neon (Medium)** | `crates/rmpd-plugin`, `crates/rmpd-os-media` | 3.000 |
+| **6** | `T-05.01` | Giao diện Verdant Engawa (`Slint`/`iced` GPU): 8 Views, 4 Presets, Fullscreen FFT | `STATION` | **Neon (High)** | `crates/rmpd-client-ui` | 4.500 |
+| **6** | `T-05.02` | `rmpd-launcher` (Auto-Spawn Daemon, Single-Instance, System Tray, Watchdog) | `STATION` | **Neon (Medium)** | `crates/rmpd-launcher` | 2.500 |
 | **7** | `T-06.01` | Kiểm chứng toán học DSP, biên dải 72-Band Hertz FFT, `EBU R128` & RingBuffer | `PASS_GATE` | **Python Script** (0 LLM) | `scratch/verification_dsp` | 1.500 |
 | **7** | `T-06.02` | E2E Audio Loopback, UI Snapshot Regression, Hot-Unplug DAC & Security Audit | `STATION` | **Argon (High)** | `tests/e2e_loopback` | 3.000 |
-| **8** | `T-07.01` | Đóng gói `.msi`, Portable `.zip`, `.AppImage`, `.dmg`, `SHA256SUMS` & Quality Gate | `STATION` | **Argon (Medium)** | `packaging/dist`, `ci/release_pipeline`, `docs/user_guide` | 2.500 |
+| **8** | `T-07.01` | Đóng gói `.msi`, Portable `.zip`, `.AppImage`, `.dmg`, `SHA256SUMS` & Quality Gate | `STATION` | **Hydrogen (Low/Medium)** | `packaging/dist`, `ci/release_pipeline`, `docs/user_guide` | 2.500 |
 
 * **Đường găng (*Critical Path*):** `T-01.01 -> T-01.02 -> T-01.03 -> T-03.01 -> T-05.01 -> T-06.02 -> T-07.01` (**21.000 tokens**; tổng 12 tasks: **35.500 / 55.000 tokens**).
 * **Tệp hợp đồng JSON chuẩn hóa:** Xem [.hta/work_breakdown_contract.json](./.hta/work_breakdown_contract.json) và [.hta/state_capsule.json](./.hta/state_capsule.json).

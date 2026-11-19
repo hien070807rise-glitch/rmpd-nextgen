@@ -10,7 +10,7 @@
   "decision_log": [
     "UI Re-Alignment: Đối chiếu thực tế phát hiện UI cục bộ Verdant (feat/option-c-refactor) đã nâng cấp mạnh về Engawa Design System, Classical Work parser, 72-band Hertz FFT, LRCLIB và Discord RPC -> cập nhật toàn bộ Contract M1-M7.",
     "Protocol Extension: Bổ sung Lock-Free PCM/FFT Telemetry Tap bên cạnh MPD Socket để nuôi Visualizer 30-60fps mà không vi phạm Real-Time Audio Callback Invariant.",
-    "Concurrency Policy: Giữ nguyên phân bổ Hydrogen High (T-01.01), Argon Pro cho 8 trạm code/test/packaging (tối đa 2 luồng Argon/Wave), bảo toàn Opus cho ESCALATE_HANDOFF."
+    "Concurrency Policy: Phân bổ đều 3 model (Argon High cho kiến trúc/Audio Engine/E2E; Neon High/Medium cho UI Engawa/Library/Plugin/Launcher; Hydrogen High/Medium/Low cho PREP/Tagger/Packaging & Expediter), tối đa 1 Argon/Wave; bảo toàn Opus cho ESCALATE_HANDOFF."
   ],
   "rejected_heuristics": [
     "[REJECTED_HEURISTIC] Dùng rust-anything hoặc c2rust chuyển ngữ trực tiếp mã JS/GDI+ của Verdant hoặc C++ foobar2000 (phải viết mới bằng Slint/iced theo đặc tả hành vi).",
