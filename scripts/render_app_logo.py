@@ -97,7 +97,7 @@ def main():
 
     dark_img.save(dark_512, format="PNG")
     washi_img.save(washi_512, format="PNG")
-    dark_img.save(ico_path, format="ICO", sizes=[(256, 256), (128, 128), (64, 64), (48, 48), (32, 32), (16, 16)])
+    washi_img.save(ico_path, format="ICO", sizes=[(256, 256), (128, 128), (64, 64), (48, 48), (32, 32), (16, 16)])
 
     print(f"Generated:\n- {dark_512}\n- {washi_512}\n- {ico_path}")
 
