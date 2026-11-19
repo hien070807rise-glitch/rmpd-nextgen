@@ -122,7 +122,10 @@ pub struct VerdantEngawaApp {
     stop_flag: Arc<AtomicBool>,
     pause_flag: Arc<AtomicBool>,
     fft_phase: f32,
-    ripples: Vec<ClickRipple>,
+    last_view: ActiveView,
+    view_trans_start: f64,
+    last_right_tab: RightTab,
+    right_trans_start: f64,
 }
 
 const DEFAULT_COLLECTIONS_JSON: &str = r#"{
@@ -381,7 +384,10 @@ impl VerdantEngawaApp {
             stop_flag: Arc::new(AtomicBool::new(false)),
             pause_flag: Arc::new(AtomicBool::new(false)),
             fft_phase: 0.0,
-            ripples: Vec::new(),
+            last_view: ActiveView::Home,
+            view_trans_start: -10.0,
+            last_right_tab: RightTab::Queue,
+            right_trans_start: -10.0,
         }
     }
 
@@ -645,23 +651,17 @@ impl eframe::App for VerdantEngawaApp {
         ctx.set_pixels_per_point((native_ppp * (self.state.settings.ui_scale / 1.12)).clamp(1.10, 2.50));
 
         let now_t = ctx.input(|i| i.time);
-        if ctx.input(|i| i.pointer.primary_clicked()) {
-            if let Some(pos) = ctx.input(|i| i.pointer.interact_pos()) {
-                let is_dark_zone = pos.x < 292.0 || pos.y < 36.0;
-                let r_col = if is_dark_zone {
-                    c32(pal.sidebar_accent)
-                } else {
-                    c32(pal.content_accent)
-                };
-                self.ripples.push(ClickRipple {
-                    pos,
-                    start_time: now_t,
-                    color: r_col,
-                });
-            }
+        if self.state.current_view != self.last_view {
+            self.last_view = self.state.current_view.clone();
+            self.view_trans_start = now_t;
         }
-        self.ripples.retain(|r| now_t - r.start_time < 0.28);
-        if !self.ripples.is_empty() {
+        if self.right_tab != self.last_right_tab {
+            self.last_right_tab = self.right_tab;
+            self.right_trans_start = now_t;
+        }
+        let view_elapsed = (now_t - self.view_trans_start) as f32;
+        let right_elapsed = (now_t - self.right_trans_start) as f32;
+        if view_elapsed < 0.32 || right_elapsed < 0.24 {
             ctx.request_repaint();
         }
 
@@ -777,12 +777,20 @@ impl eframe::App for VerdantEngawaApp {
                     if ui
                         .add(
                             egui::Button::new(
-                                RichText::new("⌂ Home")
+                                RichText::new("Home")
                                     .size(12.0)
                                     .strong()
-                                    .color(if is_home { basalt_bg } else { basalt_text }),
+                                    .color(if is_home { sage_accent } else { basalt_text }),
                             )
-                            .fill(if is_home { sage_accent } else { basalt_elev })
+                            .fill(if is_home { basalt_elev } else { Color32::TRANSPARENT })
+                            .stroke(Stroke::new(
+                                1.0_f32,
+                                if is_home {
+                                    Color32::from_rgb(62, 74, 64)
+                                } else {
+                                    Color32::TRANSPARENT
+                                },
+                            ))
                             .rounding(Rounding::same(12.0)),
                         )
                         .clicked()
@@ -794,12 +802,20 @@ impl eframe::App for VerdantEngawaApp {
                     if ui
                         .add(
                             egui::Button::new(
-                                RichText::new("♫ All Songs")
+                                RichText::new("All Songs")
                                     .size(12.0)
                                     .strong()
-                                    .color(if is_all { basalt_bg } else { basalt_text }),
+                                    .color(if is_all { sage_accent } else { basalt_text }),
                             )
-                            .fill(if is_all { sage_accent } else { basalt_elev })
+                            .fill(if is_all { basalt_elev } else { Color32::TRANSPARENT })
+                            .stroke(Stroke::new(
+                                1.0_f32,
+                                if is_all {
+                                    Color32::from_rgb(62, 74, 64)
+                                } else {
+                                    Color32::TRANSPARENT
+                                },
+                            ))
                             .rounding(Rounding::same(12.0)),
                         )
                         .clicked()
@@ -813,12 +829,11 @@ impl eframe::App for VerdantEngawaApp {
                         .fill(basalt_elev)
                         .rounding(Rounding::same(13.0))
                         .stroke(Stroke::new(1.0_f32, hairline_basalt))
-                        .inner_margin(egui::Margin::symmetric(10.0, 3.0))
+                        .inner_margin(egui::Margin::symmetric(12.0, 3.0))
                         .show(ui, |ui| {
                             ui.horizontal(|ui| {
-                                ui.label(RichText::new("🔍").size(11.0).color(basalt_dim));
                                 let edit = egui::TextEdit::singleline(&mut self.search_query)
-                                    .hint_text("Search tracks, playlists...   Ctrl+K")
+                                    .hint_text("Search tracks, collections...   Ctrl+K")
                                     .desired_width(210.0)
                                     .frame(false)
                                     .text_color(basalt_text);
@@ -1427,7 +1442,9 @@ impl eframe::App for VerdantEngawaApp {
                     .exact_width(284.0)
                     .frame(egui::Frame::none().fill(queue_washi))
                     .show(ctx, |ui| {
-                        // Row 2 Right Datum Header (36px with 3px Deep Moss active underline)
+                        // Row 2 Right Datum Header (36px with smoothly sliding 2.5px Deep Moss underline)
+                        let mut q_rect_opt: Option<Rect> = None;
+                        let mut n_rect_opt: Option<Rect> = None;
                         egui::Frame::none()
                             .fill(queue_washi)
                             .inner_margin(egui::Margin::symmetric(14.0, 6.0))
@@ -1452,16 +1469,10 @@ impl eframe::App for VerdantEngawaApp {
                                             )
                                             .frame(false),
                                         );
-                                        if active {
-                                            let r = resp.rect;
-                                            ui.painter().rect_filled(
-                                                Rect::from_min_max(
-                                                    Pos2::new(r.left(), r.bottom() + 2.0),
-                                                    Pos2::new(r.right(), r.bottom() + 5.0),
-                                                ),
-                                                Rounding::same(1.5),
-                                                deep_moss,
-                                            );
+                                        if tab == RightTab::Queue {
+                                            q_rect_opt = Some(resp.rect);
+                                        } else {
+                                            n_rect_opt = Some(resp.rect);
                                         }
                                         if resp.clicked() {
                                             self.right_tab = tab;
@@ -1470,6 +1481,37 @@ impl eframe::App for VerdantEngawaApp {
                                     }
                                 });
                             });
+                        if let (Some(qr), Some(nr)) = (q_rect_opt, n_rect_opt) {
+                            let target_x = if self.right_tab == RightTab::Queue {
+                                qr.left()
+                            } else {
+                                nr.left()
+                            };
+                            let target_w = if self.right_tab == RightTab::Queue {
+                                qr.width()
+                            } else {
+                                nr.width()
+                            };
+                            let anim_x = ctx.animate_value_with_time(
+                                ui.id().with("qtab_x"),
+                                target_x,
+                                0.16,
+                            );
+                            let anim_w = ctx.animate_value_with_time(
+                                ui.id().with("qtab_w"),
+                                target_w,
+                                0.16,
+                            );
+                            let line_y = qr.bottom() + 4.0;
+                            ui.painter().rect_filled(
+                                Rect::from_min_max(
+                                    Pos2::new(anim_x, line_y),
+                                    Pos2::new(anim_x + anim_w, line_y + 2.5),
+                                ),
+                                Rounding::same(1.2),
+                                deep_moss,
+                            );
+                        }
                         ui.painter().hline(
                             ui.max_rect().x_range(),
                             ui.cursor().top(),
@@ -1751,11 +1793,38 @@ impl eframe::App for VerdantEngawaApp {
                                 );
                             });
                         });
+                    let datum_y = ui.cursor().top();
                     ui.painter().hline(
                         ui.max_rect().x_range(),
-                        ui.cursor().top(),
+                        datum_y,
                         Stroke::new(1.0_f32, hairline_washi),
                     );
+                    // Hairline Ink Rule: subtle 1.5px Deep Moss ink line draws left-to-right on view switch
+                    if view_elapsed >= 0.0 && view_elapsed < 0.30 {
+                        let p = (view_elapsed / 0.30).clamp(0.0, 1.0);
+                        let ease = 1.0 - (1.0 - p).powi(3);
+                        let fade = if p < 0.65 { 0.85 } else { 0.85 * (1.0 - (p - 0.65) / 0.35) };
+                        let xr = ui.max_rect().x_range();
+                        let end_x = xr.min + (xr.max - xr.min) * ease;
+                        ui.painter().line_segment(
+                            [Pos2::new(xr.min, datum_y), Pos2::new(end_x, datum_y)],
+                            Stroke::new(
+                                1.5_f32,
+                                Color32::from_rgba_unmultiplied(
+                                    deep_moss.r(),
+                                    deep_moss.g(),
+                                    deep_moss.b(),
+                                    (255.0 * fade) as u8,
+                                ),
+                            ),
+                        );
+                    }
+                    // Washi Settle: 3px quiet vertical settle on view switch
+                    let settle_p = (view_elapsed / 0.18).clamp(0.0, 1.0);
+                    let settle_y = 3.0 * (1.0 - (1.0 - (1.0 - settle_p).powi(2)));
+                    if settle_y > 0.05 {
+                        ui.add_space(settle_y);
+                    }
                 }
 
                 // Main Scrollable Content
@@ -1815,33 +1884,6 @@ impl eframe::App for VerdantEngawaApp {
                     }
                 }
             });
-
-        // Global Click Ripple Feedback Overlay
-        if !self.ripples.is_empty() {
-            let area_painter = ctx.layer_painter(egui::LayerId::new(
-                egui::Order::Foreground,
-                egui::Id::new("verdant_click_ripples"),
-            ));
-            for rip in &self.ripples {
-                let p = ((now_t - rip.start_time) / 0.28).clamp(0.0, 1.0) as f32;
-                let ease = 1.0 - (1.0 - p).powi(3);
-                let radius = 5.0 + 22.0 * ease;
-                let alpha = ((1.0 - p) * 115.0).round() as u8;
-                area_painter.circle_stroke(
-                    rip.pos,
-                    radius,
-                    Stroke::new(
-                        1.8_f32,
-                        Color32::from_rgba_unmultiplied(
-                            rip.color.r(),
-                            rip.color.g(),
-                            rip.color.b(),
-                            alpha,
-                        ),
-                    ),
-                );
-            }
-        }
     }
 }
 
@@ -2316,29 +2358,19 @@ impl VerdantEngawaApp {
                     let hov_t = ui.ctx().animate_bool_with_time(
                         ui.id().with(("card_hov", c_idx)),
                         resp.hovered(),
-                        0.14,
+                        0.15,
                     );
-                    let press_t = ui.ctx().animate_bool_with_time(
-                        ui.id().with(("card_press", c_idx)),
-                        resp.is_pointer_button_down_on(),
-                        0.08,
-                    );
-                    let card_rect = rect.translate(Vec2::new(0.0, -2.0 * hov_t + 1.5 * press_t));
-                    let painter = ui.painter_at(card_rect.expand(4.0));
+                    let painter = ui.painter_at(rect);
 
-                    let card_bg = lerp_color(washi_elev, Color32::from_rgb(222, 217, 206), hov_t);
-                    let border_col = lerp_color(hairline_washi, deep_moss, hov_t * 0.65);
-                    painter.rect_filled(card_rect, Rounding::same(8.0), card_bg);
-                    painter.rect_stroke(
-                        card_rect,
-                        Rounding::same(8.0),
-                        Stroke::new(1.0_f32 + 0.5 * hov_t, border_col),
-                    );
+                    let card_bg = lerp_color(washi_elev, Color32::from_rgb(224, 219, 209), hov_t);
+                    let border_col = lerp_color(hairline_washi, deep_moss, hov_t * 0.45);
+                    painter.rect_filled(rect, Rounding::same(8.0), card_bg);
+                    painter.rect_stroke(rect, Rounding::same(8.0), Stroke::new(1.0_f32, border_col));
 
                     let art_pad = 10.0;
                     let art_size = card_w - art_pad * 2.0;
                     let art_rect = Rect::from_min_size(
-                        Pos2::new(card_rect.left() + art_pad, card_rect.top() + art_pad),
+                        Pos2::new(rect.left() + art_pad, rect.top() + art_pad),
                         Vec2::splat(art_size),
                     );
                     painter.rect_filled(
@@ -2347,38 +2379,29 @@ impl VerdantEngawaApp {
                         Color32::from_rgb(hue[0], hue[1], hue[2]),
                     );
                     if let Some(tex) = self.textures.get(&cover_file) {
-                        let zoom = 0.025 * hov_t;
                         painter.image(
                             tex.id(),
                             art_rect,
-                            Rect::from_min_max(
-                                Pos2::new(zoom, zoom),
-                                Pos2::new(1.0 - zoom, 1.0 - zoom),
-                            ),
+                            Rect::from_min_max(Pos2::new(0.0, 0.0), Pos2::new(1.0, 1.0)),
                             Color32::WHITE,
                         );
                     }
 
-                    // Animated Deep Moss Play badge on bottom-right of cover art
+                    // Quiet fade-in Deep Moss Play badge on bottom-right of cover art
                     if hov_t > 0.03 {
-                        let badge_y_off = (1.0 - hov_t) * 8.0;
-                        let badge_c = Pos2::new(
-                            art_rect.right() - 22.0,
-                            art_rect.bottom() - 22.0 + badge_y_off,
-                        );
-                        let badge_r = 10.0 + 7.0 * hov_t;
+                        let badge_c = Pos2::new(art_rect.right() - 22.0, art_rect.bottom() - 22.0);
                         let badge_col = Color32::from_rgba_unmultiplied(
                             deep_moss.r(),
                             deep_moss.g(),
                             deep_moss.b(),
                             (255.0 * hov_t) as u8,
                         );
-                        painter.circle_filled(badge_c, badge_r, badge_col);
+                        painter.circle_filled(badge_c, 16.0, badge_col);
                         painter.text(
                             badge_c,
                             egui::Align2::CENTER_CENTER,
                             "▶",
-                            egui::FontId::proportional(11.0 + 2.5 * hov_t),
+                            egui::FontId::proportional(13.0),
                             Color32::from_rgba_unmultiplied(255, 255, 255, (255.0 * hov_t) as u8),
                         );
                     }
@@ -2581,21 +2604,38 @@ impl VerdantEngawaApp {
                                 );
                             }
 
-                            // Column 1: Track Number or Active green speaker indicator
-                            let num_str = if is_playing_this {
-                                "♫".to_string()
-                            } else if resp.hovered() {
-                                "▶".to_string()
+                            // Column 1: Track Number or Live 3-bar EQ when active
+                            if is_playing_this {
+                                for b in 0..3 {
+                                    let h = 4.0
+                                        + 8.0
+                                            * ((self.fft_phase * 1.4 + (b as f32) * 1.7)
+                                                .sin()
+                                                .abs());
+                                    let bx = rect.left() + 12.0 + (b as f32) * 4.5;
+                                    painter.rect_filled(
+                                        Rect::from_min_max(
+                                            Pos2::new(bx, rect.center().y + 6.0 - h),
+                                            Pos2::new(bx + 2.5, rect.center().y + 6.0),
+                                        ),
+                                        Rounding::same(1.0),
+                                        deep_moss,
+                                    );
+                                }
                             } else {
-                                format!("{:02}", t_idx + 1)
-                            };
-                            painter.text(
-                                Pos2::new(rect.left() + 18.0, rect.center().y),
-                                egui::Align2::CENTER_CENTER,
-                                num_str,
-                                egui::FontId::proportional(12.0),
-                                if is_playing_this { deep_moss } else { washi_dim },
-                            );
+                                let num_str = if resp.hovered() {
+                                    "▶".to_string()
+                                } else {
+                                    format!("{:02}", t_idx + 1)
+                                };
+                                painter.text(
+                                    Pos2::new(rect.left() + 18.0, rect.center().y),
+                                    egui::Align2::CENTER_CENTER,
+                                    num_str,
+                                    egui::FontId::proportional(12.0),
+                                    washi_dim,
+                                );
+                            }
 
                             // Column 2: 36x36 Cover + Title & Movement / Artist
                             let cov_r = Rect::from_min_size(
