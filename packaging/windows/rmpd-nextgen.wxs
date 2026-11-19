@@ -1,5 +1,7 @@
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
   <Package Name="RMPD-NextGen (Verdant Engawa)" Manufacturer="RMPD-NextGen Contributors" Version="0.1.0.0" UpgradeCode="B62D5A7E-9A4B-4F31-9C28-7C8E4B2F9012">
+    <Icon Id="AppIcon.ico" SourceFile="..\..\assets\logo\rmpd-nextgen.ico" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon.ico" />
     <MajorUpgrade DowngradeErrorMessage="A newer version of RMPD-NextGen is already installed." />
     <MediaTemplate EmbedCab="yes" />
     <Feature Id="ProductFeature" Title="RMPD-NextGen Core &amp; Verdant Engawa UI" Level="1">

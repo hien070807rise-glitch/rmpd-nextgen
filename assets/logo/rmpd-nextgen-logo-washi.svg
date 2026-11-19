@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Washi Light Editorial Variant (matching pl_01..pl_04 parchment cards) -->
+  <rect x="16" y="16" width="480" height="480" rx="104" fill="#F3F0EA"/>
+  <rect x="32" y="32" width="448" height="448" rx="90" fill="none" stroke="#C8C2B6" stroke-width="2"/>
+
+  <!-- Concentric Grooves -->
+  <g fill="none" stroke-linecap="butt">
+    <path d="M 380 256 A 124 124 0 1 1 256 132" stroke="#C8C2B6" stroke-width="3"/>
+    <path d="M 404 256 A 148 148 0 1 1 256 108" stroke="#A69F92" stroke-width="3"/>
+    <path d="M 428 256 A 172 172 0 1 1 256 84" stroke="#6E695F" stroke-width="3"/>
+    <path d="M 452 256 A 196 196 0 1 1 256 60" stroke="#1D1C1A" stroke-width="4" opacity="0.88"/>
+  </g>
+
+  <!-- Diagonal Deep Moss & Bronze Hairline Seam -->
+  <line x1="120" y1="392" x2="392" y2="120" stroke="#3E5C44" stroke-width="18" stroke-linecap="square"/>
+  <line x1="130" y1="402" x2="402" y2="130" stroke="#82705A" stroke-width="3" stroke-linecap="square"/>
+
+  <!-- Harmonic Vertical Bars (clean Ma gap above diagonal seam) -->
+  <rect x="276" y="110" width="12" height="42" fill="#1D1C1A"/>
+  <rect x="298" y="88" width="12" height="64" fill="#3E5C44"/>
+  <rect x="320" y="122" width="12" height="30" fill="#1D1C1A"/>
+
+  <!-- Center Acoustic Spindle -->
+  <circle cx="256" cy="256" r="52" fill="#1D1C1A"/>
+  <circle cx="256" cy="256" r="52" fill="none" stroke="#F3F0EA" stroke-width="6"/>
+  <circle cx="256" cy="256" r="16" fill="#F3F0EA"/>
+  <circle cx="256" cy="256" r="6" fill="#3E5C44"/>
+</svg>
