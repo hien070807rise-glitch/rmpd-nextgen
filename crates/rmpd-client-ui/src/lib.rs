@@ -187,7 +187,7 @@ impl Default for UiSettings {
     fn default() -> Self {
         Self {
             preset: ThemePreset::Default,
-            ui_scale: 1.0,
+            ui_scale: 1.22,
             output_ceiling_db: 0,
             discord_presence: true,
             queue_open: true,

@@ -21,6 +21,24 @@ fn c32_alpha(c: Rgb, a: u8) -> Color32 {
     Color32::from_rgba_unmultiplied(c.r, c.g, c.b, a)
 }
 
+fn lerp_color(a: Color32, b: Color32, t: f32) -> Color32 {
+    let t = t.clamp(0.0, 1.0);
+    let inv = 1.0 - t;
+    Color32::from_rgba_unmultiplied(
+        (a.r() as f32 * inv + b.r() as f32 * t).round() as u8,
+        (a.g() as f32 * inv + b.g() as f32 * t).round() as u8,
+        (a.b() as f32 * inv + b.b() as f32 * t).round() as u8,
+        (a.a() as f32 * inv + b.a() as f32 * t).round() as u8,
+    )
+}
+
+#[derive(Debug, Clone)]
+struct ClickRipple {
+    pos: Pos2,
+    start_time: f64,
+    color: Color32,
+}
+
 #[derive(Debug, Clone)]
 struct TrackEntry {
     title: String,
@@ -104,6 +122,7 @@ pub struct VerdantEngawaApp {
     stop_flag: Arc<AtomicBool>,
     pause_flag: Arc<AtomicBool>,
     fft_phase: f32,
+    ripples: Vec<ClickRipple>,
 }
 
 const DEFAULT_COLLECTIONS_JSON: &str = r#"{
@@ -362,6 +381,7 @@ impl VerdantEngawaApp {
             stop_flag: Arc::new(AtomicBool::new(false)),
             pause_flag: Arc::new(AtomicBool::new(false)),
             fft_phase: 0.0,
+            ripples: Vec::new(),
         }
     }
 
@@ -621,7 +641,29 @@ impl eframe::App for VerdantEngawaApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.ensure_textures_loaded(ctx);
         let pal = self.state.palette();
-        ctx.set_pixels_per_point(self.state.settings.ui_scale);
+        let native_ppp = ctx.native_pixels_per_point().unwrap_or(1.25).max(1.15);
+        ctx.set_pixels_per_point((native_ppp * (self.state.settings.ui_scale / 1.12)).clamp(1.10, 2.50));
+
+        let now_t = ctx.input(|i| i.time);
+        if ctx.input(|i| i.pointer.primary_clicked()) {
+            if let Some(pos) = ctx.input(|i| i.pointer.interact_pos()) {
+                let is_dark_zone = pos.x < 292.0 || pos.y < 36.0;
+                let r_col = if is_dark_zone {
+                    c32(pal.sidebar_accent)
+                } else {
+                    c32(pal.content_accent)
+                };
+                self.ripples.push(ClickRipple {
+                    pos,
+                    start_time: now_t,
+                    color: r_col,
+                });
+            }
+        }
+        self.ripples.retain(|r| now_t - r.start_time < 0.28);
+        if !self.ripples.is_empty() {
+            ctx.request_repaint();
+        }
 
         let (is_playing, is_paused, cur_track, elapsed_s, total_s, fft_bands, sr, bits) = {
             if let Ok(mut st) = self.audio.lock() {
@@ -862,10 +904,22 @@ impl eframe::App for VerdantEngawaApp {
                 let full_rect = ui.max_rect();
                 let painter = ui.painter();
 
-                // Full-width edge-to-edge top seekbar (3px track at very top of the 84px bar)
+                // Seek interaction on the top 14px strip with smooth animSeekVal expansion (3px -> 6.5px)
+                let seek_hit = ui.interact(
+                    Rect::from_min_max(
+                        full_rect.min,
+                        Pos2::new(full_rect.max.x, full_rect.min.y + 14.0),
+                    ),
+                    ui.id().with("edge_seek"),
+                    Sense::click_and_drag(),
+                );
+                let seek_hot = seek_hit.hovered() || seek_hit.dragged();
+                let seek_anim = ctx.animate_bool_with_time(ui.id().with("seek_anim"), seek_hot, 0.14);
+                let seek_th = 3.0 + 3.5 * seek_anim;
+
                 let seek_rect = Rect::from_min_max(
                     full_rect.min,
-                    Pos2::new(full_rect.max.x, full_rect.min.y + 4.0),
+                    Pos2::new(full_rect.max.x, full_rect.min.y + seek_th),
                 );
                 painter.rect_filled(seek_rect, Rounding::ZERO, Color32::from_rgb(48, 45, 41));
                 let progress = if total_s > 0.0 {
@@ -877,21 +931,25 @@ impl eframe::App for VerdantEngawaApp {
                 painter.rect_filled(
                     Rect::from_min_max(
                         full_rect.min,
-                        Pos2::new(full_rect.min.x + fill_w, full_rect.min.y + 4.0),
+                        Pos2::new(full_rect.min.x + fill_w, full_rect.min.y + seek_th),
                     ),
                     Rounding::ZERO,
                     sage_accent,
                 );
-
-                // Seek interaction on the top 8px strip
-                let seek_hit = ui.interact(
-                    Rect::from_min_max(
-                        full_rect.min,
-                        Pos2::new(full_rect.max.x, full_rect.min.y + 10.0),
-                    ),
-                    ui.id().with("edge_seek"),
-                    Sense::click_and_drag(),
-                );
+                if seek_anim > 0.04 {
+                    let thumb_r = 6.0 * seek_anim;
+                    let tx = (full_rect.min.x + fill_w).clamp(full_rect.min.x + thumb_r, full_rect.max.x - thumb_r);
+                    painter.circle_filled(
+                        Pos2::new(tx, full_rect.min.y + seek_th * 0.5),
+                        thumb_r,
+                        Color32::from_rgba_unmultiplied(
+                            basalt_text.r(),
+                            basalt_text.g(),
+                            basalt_text.b(),
+                            (255.0 * seek_anim) as u8,
+                        ),
+                    );
+                }
                 if seek_hit.clicked() || seek_hit.dragged() {
                     if let Some(pos) = seek_hit.interact_pointer_pos() {
                         let ratio = ((pos.x - full_rect.min.x) / full_rect.width()).clamp(0.0, 1.0);
@@ -1027,16 +1085,23 @@ impl eframe::App for VerdantEngawaApp {
                         }
 
                         ui.add_space(8.0);
-                        // 50px Circular Play / Pause Hero Button (matches views/bar.js)
+                        // 50px Circular Play / Pause Hero Button with hover expand + press bounce
                         let (play_rect, play_resp) =
-                            ui.allocate_exact_size(Vec2::new(48.0, 48.0), Sense::click());
+                            ui.allocate_exact_size(Vec2::new(50.0, 50.0), Sense::click());
                         let p_painter = ui.painter_at(play_rect);
-                        let circle_fill = if play_resp.hovered() {
-                            sage_accent
-                        } else {
-                            basalt_text
-                        };
-                        p_painter.circle_filled(play_rect.center(), 23.0, circle_fill);
+                        let play_hov = ctx.animate_bool_with_time(
+                            ui.id().with("hero_play_hov"),
+                            play_resp.hovered(),
+                            0.12,
+                        );
+                        let play_press = ctx.animate_bool_with_time(
+                            ui.id().with("hero_play_press"),
+                            play_resp.is_pointer_button_down_on(),
+                            0.08,
+                        );
+                        let circle_fill = lerp_color(basalt_text, sage_accent, play_hov);
+                        let radius = 23.0 + 2.5 * play_hov - 2.5 * play_press;
+                        p_painter.circle_filled(play_rect.center(), radius, circle_fill);
                         let icon_str = if is_playing && !is_paused { "⏸" } else { "▶" };
                         p_painter.text(
                             play_rect.center(),
@@ -1750,6 +1815,33 @@ impl eframe::App for VerdantEngawaApp {
                     }
                 }
             });
+
+        // Global Click Ripple Feedback Overlay
+        if !self.ripples.is_empty() {
+            let area_painter = ctx.layer_painter(egui::LayerId::new(
+                egui::Order::Foreground,
+                egui::Id::new("verdant_click_ripples"),
+            ));
+            for rip in &self.ripples {
+                let p = ((now_t - rip.start_time) / 0.28).clamp(0.0, 1.0) as f32;
+                let ease = 1.0 - (1.0 - p).powi(3);
+                let radius = 5.0 + 22.0 * ease;
+                let alpha = ((1.0 - p) * 115.0).round() as u8;
+                area_painter.circle_stroke(
+                    rip.pos,
+                    radius,
+                    Stroke::new(
+                        1.8_f32,
+                        Color32::from_rgba_unmultiplied(
+                            rip.color.r(),
+                            rip.color.g(),
+                            rip.color.b(),
+                            alpha,
+                        ),
+                    ),
+                );
+            }
+        }
     }
 }
 
@@ -1779,18 +1871,31 @@ impl VerdantEngawaApp {
             ui.allocate_exact_size(Vec2::new(280.0, row_h), Sense::click());
         let painter = ui.painter_at(rect);
 
-        if is_selected || resp.hovered() {
-            painter.rect_filled(
-                rect.shrink2(Vec2::new(8.0, 2.0)),
-                Rounding::same(6.0),
-                basalt_elev,
+        let hov_t = ui.ctx().animate_bool_with_time(
+            ui.id().with(("sb_row_hov", idx)),
+            resp.hovered() || is_selected,
+            0.12,
+        );
+        let sel_t = ui.ctx().animate_bool_with_time(
+            ui.id().with(("sb_row_sel", idx)),
+            is_selected,
+            0.16,
+        );
+        if hov_t > 0.01 {
+            let bg_col = Color32::from_rgba_unmultiplied(
+                basalt_elev.r(),
+                basalt_elev.g(),
+                basalt_elev.b(),
+                (255.0 * hov_t) as u8,
             );
+            painter.rect_filled(rect.shrink2(Vec2::new(8.0, 2.0)), Rounding::same(6.0), bg_col);
         }
-        if is_selected {
+        if sel_t > 0.01 {
+            let half_h = (row_h * 0.32) * sel_t;
             painter.rect_filled(
                 Rect::from_min_max(
-                    Pos2::new(rect.left() + 8.0, rect.top() + 10.0),
-                    Pos2::new(rect.left() + 11.0, rect.bottom() - 10.0),
+                    Pos2::new(rect.left() + 8.0, rect.center().y - half_h),
+                    Pos2::new(rect.left() + 11.0, rect.center().y + half_h),
                 ),
                 Rounding::same(1.5),
                 sage_accent,
@@ -2208,27 +2313,32 @@ impl VerdantEngawaApp {
 
                     let (rect, resp) =
                         ui.allocate_exact_size(Vec2::new(card_w, card_h), Sense::click());
-                    let painter = ui.painter_at(rect);
-
-                    painter.rect_filled(
-                        rect,
-                        Rounding::same(8.0),
-                        if resp.hovered() {
-                            Color32::from_rgb(224, 219, 209)
-                        } else {
-                            washi_elev
-                        },
+                    let hov_t = ui.ctx().animate_bool_with_time(
+                        ui.id().with(("card_hov", c_idx)),
+                        resp.hovered(),
+                        0.14,
                     );
+                    let press_t = ui.ctx().animate_bool_with_time(
+                        ui.id().with(("card_press", c_idx)),
+                        resp.is_pointer_button_down_on(),
+                        0.08,
+                    );
+                    let card_rect = rect.translate(Vec2::new(0.0, -2.0 * hov_t + 1.5 * press_t));
+                    let painter = ui.painter_at(card_rect.expand(4.0));
+
+                    let card_bg = lerp_color(washi_elev, Color32::from_rgb(222, 217, 206), hov_t);
+                    let border_col = lerp_color(hairline_washi, deep_moss, hov_t * 0.65);
+                    painter.rect_filled(card_rect, Rounding::same(8.0), card_bg);
                     painter.rect_stroke(
-                        rect,
+                        card_rect,
                         Rounding::same(8.0),
-                        Stroke::new(1.0_f32, hairline_washi),
+                        Stroke::new(1.0_f32 + 0.5 * hov_t, border_col),
                     );
 
                     let art_pad = 10.0;
                     let art_size = card_w - art_pad * 2.0;
                     let art_rect = Rect::from_min_size(
-                        Pos2::new(rect.left() + art_pad, rect.top() + art_pad),
+                        Pos2::new(card_rect.left() + art_pad, card_rect.top() + art_pad),
                         Vec2::splat(art_size),
                     );
                     painter.rect_filled(
@@ -2237,24 +2347,39 @@ impl VerdantEngawaApp {
                         Color32::from_rgb(hue[0], hue[1], hue[2]),
                     );
                     if let Some(tex) = self.textures.get(&cover_file) {
+                        let zoom = 0.025 * hov_t;
                         painter.image(
                             tex.id(),
                             art_rect,
-                            Rect::from_min_max(Pos2::new(0.0, 0.0), Pos2::new(1.0, 1.0)),
+                            Rect::from_min_max(
+                                Pos2::new(zoom, zoom),
+                                Pos2::new(1.0 - zoom, 1.0 - zoom),
+                            ),
                             Color32::WHITE,
                         );
                     }
 
-                    // Hover circular Deep Moss Play badge on bottom-right of cover art
-                    if resp.hovered() {
-                        let badge_c = Pos2::new(art_rect.right() - 20.0, art_rect.bottom() - 20.0);
-                        painter.circle_filled(badge_c, 16.0, deep_moss);
+                    // Animated Deep Moss Play badge on bottom-right of cover art
+                    if hov_t > 0.03 {
+                        let badge_y_off = (1.0 - hov_t) * 8.0;
+                        let badge_c = Pos2::new(
+                            art_rect.right() - 22.0,
+                            art_rect.bottom() - 22.0 + badge_y_off,
+                        );
+                        let badge_r = 10.0 + 7.0 * hov_t;
+                        let badge_col = Color32::from_rgba_unmultiplied(
+                            deep_moss.r(),
+                            deep_moss.g(),
+                            deep_moss.b(),
+                            (255.0 * hov_t) as u8,
+                        );
+                        painter.circle_filled(badge_c, badge_r, badge_col);
                         painter.text(
                             badge_c,
                             egui::Align2::CENTER_CENTER,
                             "▶",
-                            egui::FontId::proportional(13.0),
-                            Color32::WHITE,
+                            egui::FontId::proportional(11.0 + 2.5 * hov_t),
+                            Color32::from_rgba_unmultiplied(255, 255, 255, (255.0 * hov_t) as u8),
                         );
                     }
 
@@ -2676,6 +2801,41 @@ impl VerdantEngawaApp {
                     .inner_margin(egui::Margin::same(16.0))
                     .show(ui, |ui| {
                         ui.label(
+                            RichText::new("UI SCALE (MATCHES FOOBAR2000 UISCALE)")
+                                .size(11.0)
+                                .strong()
+                                .color(deep_moss),
+                        );
+                        ui.add_space(8.0);
+                        ui.horizontal(|ui| {
+                            for (lbl, val) in [
+                                ("100%", 1.00f32),
+                                ("115%", 1.15f32),
+                                ("122% (Default)", 1.22f32),
+                                ("135%", 1.35f32),
+                                ("150%", 1.50f32),
+                            ] {
+                                if ui
+                                    .selectable_label(
+                                        (self.state.settings.ui_scale - val).abs() < 0.02,
+                                        RichText::new(lbl).size(13.0).color(washi_text),
+                                    )
+                                    .clicked()
+                                {
+                                    self.state.settings.ui_scale = val;
+                                }
+                                ui.add_space(8.0);
+                            }
+                        });
+                    });
+
+                ui.add_space(16.0);
+                egui::Frame::none()
+                    .fill(washi_elev)
+                    .rounding(Rounding::same(8.0))
+                    .inner_margin(egui::Margin::same(16.0))
+                    .show(ui, |ui| {
+                        ui.label(
                             RichText::new("PURE-RUST AUDIO & LIBRARY")
                                 .size(11.0)
                                 .strong()
@@ -2846,7 +3006,7 @@ pub fn run_native_engawa_window(
 ) -> Result<(), String> {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
-            .with_inner_size([1360.0, 840.0])
+            .with_inner_size([1440.0, 880.0])
             .with_min_inner_size([960.0, 620.0])
             .with_title("RMPD-NextGen · Verdant Engawa"),
         ..Default::default()
