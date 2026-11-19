@@ -21,4 +21,5 @@ desktop.ini
 # Temporary & Scratch Artifacts
 /scratch/
 /vendor/
+/packaging/dist/*.zip
 *.log

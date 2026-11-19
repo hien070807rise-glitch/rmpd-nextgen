@@ -1,0 +1,27 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package Name="RMPD-NextGen (Verdant Engawa)" Manufacturer="RMPD-NextGen Contributors" Version="0.1.0.0" UpgradeCode="B62D5A7E-9A4B-4F31-9C28-7C8E4B2F9012">
+    <MajorUpgrade DowngradeErrorMessage="A newer version of RMPD-NextGen is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+    <Feature Id="ProductFeature" Title="RMPD-NextGen Core &amp; Verdant Engawa UI" Level="1">
+      <ComponentGroupRef Id="ProductComponents" />
+    </Feature>
+    <StandardDirectory Id="ProgramFiles6432Folder">
+      <Directory Id="INSTALLFOLDER" Name="RMPD-NextGen" />
+    </StandardDirectory>
+    <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+      <Component Id="LauncherExe">
+        <File Source="..\..\target\release\rmpd-launcher.exe" KeyPath="yes" />
+        <ProgId Id="RMPDNextGen.AudioFile" Description="RMPD-NextGen Audio Track">
+          <Extension Id="flac" ContentType="audio/flac" />
+          <Extension Id="mp3" ContentType="audio/mpeg" />
+          <Extension Id="opus" ContentType="audio/ogg" />
+          <Extension Id="wav" ContentType="audio/wav" />
+          <Extension Id="dsf" ContentType="audio/dsf" />
+        </ProgId>
+      </Component>
+      <Component Id="UiExe">
+        <File Source="..\..\target\release\rmpd-ui.exe" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+  </Package>
+</Wix>

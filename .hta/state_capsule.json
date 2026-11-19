@@ -1,7 +1,7 @@
 {
   "project_name": "RMPD-NextGen-Verdant-Engawa-Edition",
-  "current_phase": "PLANNED_UI_ALIGNED_WITH_LOCAL_VERDANT",
-  "active_goal": "Xây dựng và đóng gói trình phát nhạc Pure-Rust (9 Crates) kết hợp lõi M0Rf30/rmpd với giao diện Verdant Engawa đã tùy biến thực tế trên máy (Basalt/Washi, Classical Work/Movement, 72-Band Hertz FFT Visualizer, 3-Tier LRCLIB Lyrics, Discord RPC).",
+  "current_phase": "COMPLETED_RELEASE_VERIFIED",
+  "active_goal": "Đã hoàn tất 100% 8 Waves (12/12 Tasks): Workspace 9 Crates Pure-Rust, Verdant Engawa UI (0 unsafe), kiểm toán DSP/E2E/Security, đóng gói Portable .zip & đa nền tảng, đạt APPROVED_VERIFIED.",
   "locked_axioms": [
     "[LOCKED_AXIOM] Tách rời Headless Audio Daemon (M0Rf30/rmpd) và Rust GPU UI Client (Slint/iced) qua MPD Wire Protocol + Kênh phụ Lock-Free PCM/FFT Tap (0 unsafe FFI giữa UI và Audio Engine).",
     "[LOCKED_AXIOM] UI/UX nguồn được chuẩn hóa theo bản Verdant Engawa thực tế tại AppData/Roaming/foobar2000-v2/verdant: hệ màu Basalt Dark Sidebar + Washi Light Content (WCAG AAA), 4 preset (default/zen/minimal/editorial), Frameless Title Bar, 8 Views và Fullscreen 72-Band Hertz-Spaced FFT Visualizer.",

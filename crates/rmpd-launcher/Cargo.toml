@@ -1,0 +1,17 @@
+[package]
+name = "rmpd-launcher"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+rmpd-dsp = { path = "../rmpd-dsp" }
+rmpd-library = { path = "../rmpd-library" }
+rmpd-protocol = { path = "../rmpd-protocol" }
+rmpd-client-ui = { path = "../rmpd-client-ui" }
+
+[dev-dependencies]
+rmpd-player = { path = "../rmpd-player" }
+rmpd-tagger = { path = "../rmpd-tagger" }
+rmpd-plugin = { path = "../rmpd-plugin" }
+rmpd-os-media = { path = "../rmpd-os-media" }

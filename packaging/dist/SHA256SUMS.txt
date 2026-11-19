@@ -1,0 +1,3 @@
+﻿7cad702b1f15a83e5e4a3e09078cd461b4a9b1d3a89989baa0447b35d5415498  target/release/rmpd-launcher.exe  (1934336 bytes)
+696ccaae1223a473afc99eec68de807cb7e5e6ee14cd3a5b7507c7a235a9634e  target/release/rmpd-ui.exe  (171520 bytes)
+a877d3f76772912e7e00af86a01a4da3665eb93bc38fe92cdf79f8cc5d566394  packaging/dist/rmpd-nextgen-v0.1.0-windows-x86_64-portable.zip  (1126152 bytes)

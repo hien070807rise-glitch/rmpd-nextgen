@@ -1,14 +1,22 @@
 {
   "project_id": "RMPD-NEXTGEN-FULL-PRODUCT-RELEASE",
   "route": "DEEP_DAG_ROUTE",
-  "workflow_status": "RUNNING",
+  "workflow_status": "COMPLETED",
   "total_planned_steps": 12,
-  "last_healthy_step": "T-02.01",
+  "last_healthy_step": "T-07.01",
   "checkpoint_order": [
     "T-01.01",
     "T-01.02",
     "T-01.03",
-    "T-02.01"
+    "T-02.01",
+    "T-03.01",
+    "T-03.02",
+    "T-04.01",
+    "T-05.01",
+    "T-05.02",
+    "T-06.01",
+    "T-06.02",
+    "T-07.01"
   ],
   "checkpoints": {
     "T-01.01": {
@@ -34,6 +42,54 @@
       "status": "CHECKPOINTED",
       "artifact_ref": "crates/rmpd-player/src/lib.rs",
       "evidence_summary": "Wave 4 Argon T-02.01 complete: rmpd-dsp and rmpd-player passed 6/6 unit tests on rustc 1.100.0."
+    },
+    "T-03.01": {
+      "step_id": "T-03.01",
+      "status": "CHECKPOINTED",
+      "artifact_ref": "crates/rmpd-library/src/lib.rs",
+      "evidence_summary": "Wave 4b T-03.01 complete: rmpd-library (3/3) and rmpd-protocol (1/1) passed."
+    },
+    "T-03.02": {
+      "step_id": "T-03.02",
+      "status": "CHECKPOINTED",
+      "artifact_ref": "crates/rmpd-tagger/src/lib.rs",
+      "evidence_summary": "Wave 5 T-03.02 complete: rmpd-tagger (AtomicFileWriter, EBU R128, 3-Tier LRCLIB) passed 3/3."
+    },
+    "T-04.01": {
+      "step_id": "T-04.01",
+      "status": "CHECKPOINTED",
+      "artifact_ref": "crates/rmpd-plugin/src/lib.rs",
+      "evidence_summary": "Wave 5 T-04.01 complete: rmpd-plugin (2/2) and rmpd-os-media (2/2) passed."
+    },
+    "T-05.01": {
+      "step_id": "T-05.01",
+      "status": "CHECKPOINTED",
+      "artifact_ref": "crates/rmpd-client-ui/src/lib.rs",
+      "evidence_summary": "Wave 6 T-05.01 complete: Verdant Engawa UI (0 unsafe, WCAG AAA, 8 views, headless FFT snapshot) passed 3/3."
+    },
+    "T-05.02": {
+      "step_id": "T-05.02",
+      "status": "CHECKPOINTED",
+      "artifact_ref": "crates/rmpd-launcher/src/lib.rs",
+      "evidence_summary": "Wave 6 T-05.02 complete: rmpd-launcher (Portable/Standard paths, SingleInstanceLock, Auto-Spawn Daemon) passed 2/2."
+    },
+    "T-06.01": {
+      "step_id": "T-06.01",
+      "status": "CHECKPOINTED",
+      "artifact_ref": "scratch/verification_dsp/verify_dsp_fft.py",
+      "evidence_summary": "Wave 7 T-06.01 PASS: 72-band Hertz FFT, RingBuffer 0-underrun, and math_verifier.py self-test passed."
+    },
+    "T-06.02": {
+      "step_id": "T-06.02",
+      "status": "CHECKPOINTED",
+      "artifact_ref": "crates/rmpd-launcher/tests/e2e_loopback.rs",
+      "evidence_summary": "Wave 7 T-06.02 PASS: E2E loopback + hot-unplug recovery (23/23 workspace tests) and swe_security_auditor.py (0 violations)."
+    },
+    "T-07.01": {
+      "step_id": "T-07.01",
+      "status": "CHECKPOINTED",
+      "artifact_ref": "packaging/dist/SHA256SUMS.txt",
+      "evidence_summary": "Wave 8 T-07.01 PASS: Release LTO build, Portable zip (1.12 MB), WiX/AppImage/DMG scripts, SHA256SUMS, and APPROVED_VERIFIED at independent_quality_gate.py."
     }
   },
   "steps": {
@@ -56,6 +112,46 @@
       "retry_count": 0,
       "status": "CHECKPOINTED",
       "artifact_ref": "crates/rmpd-player/src/lib.rs"
+    },
+    "T-03.01": {
+      "retry_count": 0,
+      "status": "CHECKPOINTED",
+      "artifact_ref": "crates/rmpd-library/src/lib.rs"
+    },
+    "T-03.02": {
+      "retry_count": 0,
+      "status": "CHECKPOINTED",
+      "artifact_ref": "crates/rmpd-tagger/src/lib.rs"
+    },
+    "T-04.01": {
+      "retry_count": 0,
+      "status": "CHECKPOINTED",
+      "artifact_ref": "crates/rmpd-plugin/src/lib.rs"
+    },
+    "T-05.01": {
+      "retry_count": 0,
+      "status": "CHECKPOINTED",
+      "artifact_ref": "crates/rmpd-client-ui/src/lib.rs"
+    },
+    "T-05.02": {
+      "retry_count": 0,
+      "status": "CHECKPOINTED",
+      "artifact_ref": "crates/rmpd-launcher/src/lib.rs"
+    },
+    "T-06.01": {
+      "retry_count": 0,
+      "status": "CHECKPOINTED",
+      "artifact_ref": "scratch/verification_dsp/verify_dsp_fft.py"
+    },
+    "T-06.02": {
+      "retry_count": 0,
+      "status": "CHECKPOINTED",
+      "artifact_ref": "crates/rmpd-launcher/tests/e2e_loopback.rs"
+    },
+    "T-07.01": {
+      "retry_count": 0,
+      "status": "CHECKPOINTED",
+      "artifact_ref": "packaging/dist/SHA256SUMS.txt"
     }
   },
   "rejected_heuristics": []

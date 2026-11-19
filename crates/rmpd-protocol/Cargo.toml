@@ -1,0 +1,9 @@
+[package]
+name = "rmpd-protocol"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+rmpd-library = { path = "../rmpd-library" }
+rmpd-player = { path = "../rmpd-player" }

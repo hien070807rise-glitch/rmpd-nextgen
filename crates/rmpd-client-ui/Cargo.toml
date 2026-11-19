@@ -1,0 +1,12 @@
+[package]
+name = "rmpd-client-ui"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "rmpd-ui"
+path = "src/main.rs"
+
+[dependencies]
+rmpd-dsp = { path = "../rmpd-dsp" }

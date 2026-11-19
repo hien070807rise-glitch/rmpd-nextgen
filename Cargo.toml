@@ -3,6 +3,13 @@ resolver = "2"
 members = [
     "crates/rmpd-dsp",
     "crates/rmpd-player",
+    "crates/rmpd-library",
+    "crates/rmpd-protocol",
+    "crates/rmpd-tagger",
+    "crates/rmpd-plugin",
+    "crates/rmpd-os-media",
+    "crates/rmpd-client-ui",
+    "crates/rmpd-launcher",
 ]
 
 [workspace.package]
@@ -13,3 +20,14 @@ license = "MIT OR Apache-2.0"
 [workspace.dependencies]
 rtrb = "0.3"
 rustfft = "6.2"
+rusqlite = { version = "0.32", features = ["bundled"] }
+regex = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+
+[profile.release]
+lto = "fat"
+codegen-units = 1
+strip = "symbols"
+opt-level = 3
